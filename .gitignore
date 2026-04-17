@@ -1,0 +1,28 @@
+# IDEs
+.vscode/
+.idea/
+
+# Node / Frontend
+node_modules/
+dist/
+.eslintcache
+*.local
+
+# Python / Backend
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment & Secrets (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Data (Optional)
+# If you want to keep your specific homelab JSON private, 
+# uncomment the line below:
+# data/mock_infrastructure.json
