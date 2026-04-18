@@ -41,12 +41,13 @@ function App() {
     setSelectedNode(null);
   };
 
-  const getRamPercentage = (ramString) => {
-    if (!ramString) return '0%';
-    const parts = ramString.split(' / ');
+  const getPercentage = (usageString) => {
+    if (!usageString || usageString === 'N/A') return '0%';
+    const parts = usageString.split(' / ');
     if (parts.length < 2) return '0%';
     const used = parseFloat(parts[0]);
     const total = parseFloat(parts[1]);
+    if (isNaN(used) || isNaN(total) || total === 0) return '0%';
     return `${Math.min(Math.round((used / total) * 100), 100)}%`;
   };
 
@@ -67,7 +68,9 @@ function App() {
               <div className="p-5 bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 rounded-2xl">
                 <h2 className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Active Selection</h2>
                 <h3 className="text-2xl font-bold tracking-tight leading-none">{selectedNode.data.label}</h3>
-                <p className="text-[10px] text-gray-500 mt-3 font-mono opacity-50 uppercase tracking-widest">UID: {selectedNode.id}</p>
+                <p className="text-[10px] text-gray-500 mt-3 font-mono opacity-50 uppercase tracking-widest">
+                  {selectedNode.data.vmid ? `VMID: ${selectedNode.data.vmid}` : `UID: ${selectedNode.id}`}
+                </p>
               </div>
 
               {/* Resource Usage Monitoring */}
@@ -76,6 +79,7 @@ function App() {
                   <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span> Real-time telemetry
                 </h4>
                 
+                {/* CPU */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-[11px] font-mono">
                     <span className="text-gray-400 uppercase tracking-wider">CPU Intensity</span>
@@ -89,6 +93,7 @@ function App() {
                   </div>
                 </div>
 
+                {/* RAM */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-[11px] font-mono">
                     <span className="text-gray-400 uppercase tracking-wider">Memory allocation</span>
@@ -97,13 +102,31 @@ function App() {
                   <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
                     <div 
                       className="bg-purple-500 h-full rounded-full transition-all duration-1000 ease-in-out" 
-                      style={{ width: getRamPercentage(selectedNode.data.ram) }}
+                      style={{ width: getPercentage(selectedNode.data.ram) }}
                     ></div>
                   </div>
                   <div className="flex justify-end text-[9px] text-gray-600 font-mono tracking-tighter">
                     Limit: {selectedNode.data.ram?.split(' / ')[1] || 'N/A'}
                   </div>
                 </div>
+
+                {/* STORAGE */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px] font-mono">
+                    <span className="text-gray-400 uppercase tracking-wider">Storage Capacity</span>
+                    <span className="text-cyan-400 font-bold">{selectedNode.data.disk?.split(' / ')[0] || '0GB'}</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5">
+                    <div 
+                      className="bg-cyan-500 h-full rounded-full transition-all duration-1000 ease-in-out" 
+                      style={{ width: getPercentage(selectedNode.data.disk) }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-end text-[9px] text-gray-600 font-mono tracking-tighter">
+                    Limit: {selectedNode.data.disk?.split(' / ')[1] || 'N/A'}
+                  </div>
+                </div>
+
               </div>
 
               <div className="space-y-4">
@@ -113,11 +136,20 @@ function App() {
                 <div className="grid grid-cols-1 gap-2">
                   {[
                     { label: 'Network IP', value: selectedNode.data.ip, color: 'text-gray-200' },
-                    { label: 'State', value: selectedNode.data.status, color: 'text-green-400 uppercase font-bold' },
+                    // 🚀 FIXED: Dynamic Status Color in the Sidebar
+                    { 
+                      label: 'State', 
+                      value: selectedNode.data.status, 
+                      color: (selectedNode.data.status === 'running' || selectedNode.data.status === 'online') 
+                        ? 'text-green-400 uppercase font-bold' 
+                        : 'text-red-500 uppercase font-bold' 
+                    },
                     { label: 'Platform', value: selectedNode.data.os, color: 'text-gray-300' },
                     { label: 'Uptime', value: selectedNode.data.uptime, color: 'text-gray-300 font-mono' },
+                    { label: 'Traffic In', value: selectedNode.data.net_in, color: 'text-gray-400 font-mono' },
+                    { label: 'Traffic Out', value: selectedNode.data.net_out, color: 'text-gray-400 font-mono' },
                   ].map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3.5 bg-white/[0.03] border border-white/5 rounded-xl">
+                    <div key={idx} className="flex justify-between items-center p-3.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.05] transition-colors">
                       <span className="text-[9px] uppercase text-gray-500 font-black tracking-widest">{item.label}</span>
                       <span className={`text-[11px] font-mono ${item.color}`}>{item.value || '---'}</span>
                     </div>
@@ -133,7 +165,7 @@ function App() {
 
               <button 
                 onClick={() => setSelectedNode(null)}
-                className="w-full py-4 bg-[#1a1a1a] hover:bg-white/5 rounded-2xl border border-white/5 transition-all text-[9px] uppercase tracking-[0.4em] font-black text-gray-500 hover:text-white mt-4"
+                className="w-full py-4 bg-[#1a1a1a] hover:bg-white/5 rounded-2xl border border-white/5 transition-all text-[9px] uppercase tracking-[0.4em] font-black text-gray-500 hover:text-white mt-4 cursor-pointer"
               >
                 Close Inspector
               </button>
@@ -164,7 +196,7 @@ function App() {
             <input 
               disabled 
               placeholder="Querying infrastructure..." 
-              className="w-full bg-[#141414] border border-white/10 rounded-2xl p-4 text-xs text-gray-600 cursor-not-allowed italic pr-12"
+              className="w-full bg-[#141414] border border-white/10 rounded-2xl p-4 text-xs text-gray-600 cursor-not-allowed italic pr-12 focus:outline-none"
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
                <div className="w-4 h-4 border-2 border-gray-800 border-t-gray-600 rounded-full animate-spin"></div>
@@ -205,7 +237,7 @@ function App() {
         <div className="absolute top-6 right-6 z-10 flex gap-6 bg-black/80 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-2xl">
           <div className="flex flex-col">
             <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Host Node</span>
-            <span className="text-sm font-mono text-blue-400 tracking-tighter">192.168.1.50</span>
+            <span className="text-sm font-mono text-blue-400 tracking-tighter">192.168.178.50</span>
           </div>
           <div className="flex flex-col border-l border-white/10 pl-6">
             <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Containers</span>
