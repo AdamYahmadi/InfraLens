@@ -22,9 +22,9 @@ class ProxmoxEngine:
                 port=8006,
                 timeout=10
             )
-            print(f"✅ ProxmoxEngine connected to: {self.host}")
+            print(f"ProxmoxEngine connected to: {self.host}")
         except Exception as e:
-            print(f"❌ Connection Error: {e}")
+            print(f"Connection Error: {e}")
 
     def _format_uptime(self, seconds):
         if not seconds or seconds == 0: return "0m"
