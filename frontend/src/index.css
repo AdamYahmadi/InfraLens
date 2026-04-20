@@ -1,28 +1,30 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&family=Space+Grotesk:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100..700;1,100..700&family=Space+Grotesk:wght@300..700;1,300..700&display=swap');
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   html, body, #root {
-    @apply h-screen w-screen m-0 p-0 overflow-hidden;
-    background-color: #0a0a0a; 
-    color: white;
+    @apply h-screen w-screen m-0 p-0 overflow-hidden bg-zinc-50 text-zinc-900 dark:bg-[#09090b] dark:text-[#e4e4e7] transition-colors duration-300;
     font-family: "Space Grotesk", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 }
 
+.react-flow__viewport {
+  transform-style: preserve-3d; 
+}
+
 .react-flow__node {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  -webkit-font-smoothing: antialiased;
 }
 
 .font-mono {
   font-family: "IBM Plex Mono", monospace !important;
-  letter-spacing: -0.02em; 
+  letter-spacing: -0.01em; 
 }
 
 .react-flow {
@@ -31,20 +33,17 @@
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 10px;
+  @apply bg-zinc-300 dark:bg-[#27272a];
+  border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  @apply bg-zinc-400 dark:bg-[#3f3f46];
 }
 
 #root {

@@ -3,79 +3,63 @@ import { Handle, Position } from '@xyflow/react';
 import { Server, ShieldCheck, HardDrive, Globe, Activity, LayoutTemplate } from 'lucide-react';
 
 const iconMap = {
-  dns: <ShieldCheck size={18} className="text-green-400" />,
-  security: <ShieldCheck size={18} className="text-green-400" />,
-  storage: <HardDrive size={18} className="text-blue-400" />,
-  network: <Globe size={18} className="text-purple-400" />,
-  dashboard: <Activity size={18} className="text-pink-400" />,
-  docker: <LayoutTemplate size={18} className="text-cyan-400" />,
-  host: <Server size={18} className="text-blue-500" />
+  dns: <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />,
+  security: <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />,
+  storage: <HardDrive size={16} className="text-sky-600 dark:text-sky-400" />,
+  network: <Globe size={16} className="text-indigo-600 dark:text-indigo-400" />,
+  dashboard: <Activity size={16} className="text-rose-600 dark:text-rose-400" />,
+  docker: <LayoutTemplate size={16} className="text-cyan-600 dark:text-cyan-400" />,
+  host: <Server size={16} className="text-zinc-500 dark:text-zinc-400" />
 };
 
-// Check tags first
 const getIcon = (tags, label) => {
   if (tags && tags.length > 0) {
     for (let tag of tags) {
       if (iconMap[tag]) return iconMap[tag];
     }
   }
-  
-  // Fallback 
   const lowerLabel = (label || '').toLowerCase();
   if (lowerLabel.includes('pihole')) return iconMap.dns;
   if (lowerLabel.includes('nextcloud')) return iconMap.storage;
   if (lowerLabel.includes('tailscale')) return iconMap.network;
   if (lowerLabel.includes('homepage')) return iconMap.dashboard;
   if (lowerLabel.includes('adamlab')) return iconMap.host;
-  return <Server size={18} className="text-gray-400" />;
+  return <Server size={16} className="text-zinc-400 dark:text-zinc-500" />;
 };
 
 export default function ServiceNode({ data, selected }) {
-  const isOnline = data.status === 'running' || data.status === 'online';
+  const isOnline = data.status?.toLowerCase() === 'running' || data.status?.toLowerCase() === 'online';
 
-  const dotColor = isOnline 
-    ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' 
-    : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]';
-    
-  const statusTextColor = isOnline ? 'text-gray-500' : 'text-red-400/80';
-  const opacity = isOnline ? 'opacity-100' : 'opacity-50';
+  const statusColor = isOnline ? 'bg-emerald-500' : 'bg-rose-500';
+  const opacity = isOnline ? 'opacity-100' : 'opacity-60';
 
   const borderStyle = selected 
-    ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
-    : 'border-[#333] hover:border-blue-500/50';
+    ? 'border-zinc-400 dark:border-zinc-400 bg-white dark:bg-zinc-800 shadow-lg' 
+    : 'border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-white/10 hover:bg-white dark:hover:bg-zinc-900/80';
 
   return (
-    <div className={`px-4 py-3 shadow-2xl rounded-xl bg-[#1e1e1e] border transition-all duration-300 min-w-[180px] ${borderStyle}`}>
+    <div className={`px-4 py-2.5 rounded-xl backdrop-blur-md border transition-all duration-200 min-w-[160px] flex items-center justify-between gap-4 ${borderStyle}`}>
       
-      <Handle type="target" position={Position.Top} className="opacity-0 w-0 h-0" />
+      {/* Target port on the left for LR flow */}
+      <Handle type="target" position={Position.Left} className="opacity-0 w-0 h-0" />
 
-      <div className="flex items-center">
-        <div className={`rounded-lg p-2 bg-[#121212] border border-[#333] ${opacity} transition-opacity`}>
+      <div className="flex items-center gap-3">
+        <div className={`rounded-md p-1.5 bg-zinc-100 dark:bg-zinc-950/50 border border-zinc-200 dark:border-white/5 ${opacity}`}>
           {getIcon(data.tags, data.label)}
         </div>
         
-        <div className={`ml-3 flex-grow ${opacity} transition-opacity`}>
-          <div className="text-xs font-bold text-white tracking-wide">{data.label}</div>
-          <div className={`text-[10px] font-mono uppercase mt-0.5 ${statusTextColor}`}>
+        <div className={`flex flex-col justify-center ${opacity}`}>
+          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-none">{data.label}</div>
+          <div className="text-[10px] text-zinc-500 capitalize mt-1 leading-none">
             {data.status || 'Unknown'}
           </div>
         </div>
-
-        <div className={`h-2 w-2 rounded-full transition-colors duration-500 ml-3 ${dotColor}`} />
       </div>
 
-      {/* Render Proxmox Tags as UI Pills */}
-      {data.tags && data.tags.length > 0 && data.tags[0] !== 'host' && (
-        <div className={`flex gap-1.5 mt-3 flex-wrap ${opacity}`}>
-          {data.tags.map((tag) => (
-            <span key={tag} className="px-1.5 py-0.5 rounded bg-[#111] text-[8px] uppercase tracking-widest text-gray-400 font-bold border border-white/10 shadow-inner">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className={`h-2 w-2 rounded-full shrink-0 ${statusColor} ${opacity}`} />
 
-      <Handle type="source" position={Position.Bottom} className="opacity-0 w-0 h-0" />
+      {/* Source port on the right for LR flow */}
+      <Handle type="source" position={Position.Right} className="opacity-0 w-0 h-0" />
     </div>
   );
 }
