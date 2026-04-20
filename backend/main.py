@@ -6,13 +6,14 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from proxmox_engine import ProxmoxEngine
 from security_check import verify_security_env
+from service_probe import probe_engine
 
 # 1. Run Security Verification before starting
 verify_security_env()
 
 app = FastAPI(title="InfraLens API")
 
-# 2. Configure CORS - Restricting to your local dev ports for security
+# 2. Configure CORS - Restricting to local dev ports for security
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -38,14 +39,40 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     prompt: str
     context: List[Dict[str, Any]]
-    history: List[ChatMessage]  # Receives the memory from React
+    history: List[ChatMessage] 
 
 @app.get("/api/v1/infrastructure")
 async def get_infrastructure():
     """
-    Dynamically discovers the lab setup.
+    Dynamically discovers the lab setup and probes for sub-services.
     """
-    return engine.discover_infrastructure()
+    print("\n[API] /api/v1/infrastructure called")
+    try:
+        infra = engine.discover_infrastructure()
+        nodes = infra.get("nodes", [])
+        print(f"[API] Engine successfully discovered {len(nodes)} nodes.")
+        
+        for node in nodes:
+            vmid = node.get("id")
+            node_type = node.get("data", {}).get("os", "")
+            
+            node["data"]["sub_services"] = []
+            
+            if "LXC" in str(node_type).upper():
+                try:
+                    services = probe_engine.get_lxc_services(str(vmid))
+                    if services:
+                        node["data"]["sub_services"] = services
+                        
+                        if any("docker" in str(s).lower() for s in services) and "docker" not in node["data"].get("tags", []):
+                            node["data"]["tags"].append("docker")
+                except Exception as probe_error:
+                    print(f"[API] WARNING: SSH Probe failed on LXC {vmid} -> {probe_error}")
+                    
+        return infra
+    except Exception as e:
+        print(f"[API] FATAL ERROR in get_infrastructure: {str(e)}")
+        return {"nodes": [], "edges": [], "error": str(e)}
 
 @app.get("/api/v1/status")
 async def get_status():
@@ -64,6 +91,12 @@ async def neural_link_chat(request: ChatRequest):
         d = node.get('data', {})
         if d:
             metrics = ", ".join([f"{str(k).upper()}: {str(v)}" for k, v in d.items() if v])
+            
+            # Include sub-services in the AI context if they exist
+            sub_services = d.get('sub_services', [])
+            if sub_services:
+                metrics += f", RUNNING SERVICES: {', '.join(sub_services)}"
+                
             lab_state_text += f"- Node UID [{node.get('id')}]: {metrics}\n"
     
     # 2. Refined System Prompt
@@ -107,5 +140,4 @@ async def neural_link_chat(request: ChatRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # Binding to 127.0.0.1 for local security
     uvicorn.run(app, host="127.0.0.1", port=8000)
