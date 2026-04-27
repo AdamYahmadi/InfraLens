@@ -13,16 +13,16 @@ verify_security_env()
 
 app = FastAPI(title="InfraLens API")
 
-# 2. Configure CORS - Restricting to local dev ports for security
+# 2. Configure CORS - Wildcard allows ANY port
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],  
+    allow_credentials=False,  
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 3. Initialize Engine with Environment Variables
+# 3. Initialize Engine
 engine = ProxmoxEngine(
     host=os.getenv("PVE_HOST"),
     user=os.getenv("PVE_USER"),
@@ -31,7 +31,6 @@ engine = ProxmoxEngine(
     verify_ssl=os.getenv("PVE_VERIFY_SSL", "False").lower() == "true"
 )
 
-# Data Models for the Neural Link Chat Memory
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -43,19 +42,16 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/v1/infrastructure")
 async def get_infrastructure():
-    """
-    Dynamically discovers the lab setup and probes for sub-services.
-    """
     print("\n[API] /api/v1/infrastructure called")
     try:
         infra = engine.discover_infrastructure()
         nodes = infra.get("nodes", [])
+        
         print(f"[API] Engine successfully discovered {len(nodes)} nodes.")
         
         for node in nodes:
             vmid = node.get("id")
             node_type = node.get("data", {}).get("os", "")
-            
             node["data"]["sub_services"] = []
             
             if "LXC" in str(node_type).upper():
@@ -63,7 +59,6 @@ async def get_infrastructure():
                     services = probe_engine.get_lxc_services(str(vmid))
                     if services:
                         node["data"]["sub_services"] = services
-                        
                         if any("docker" in str(s).lower() for s in services) and "docker" not in node["data"].get("tags", []):
                             node["data"]["tags"].append("docker")
                 except Exception as probe_error:
@@ -74,70 +69,81 @@ async def get_infrastructure():
         print(f"[API] FATAL ERROR in get_infrastructure: {str(e)}")
         return {"nodes": [], "edges": [], "error": str(e)}
 
-@app.get("/api/v1/status")
-async def get_status():
-    return {
-        "status": "online", 
-        "host": os.getenv("PVE_HOST", "Unknown"), 
-        "message": "Connected to Proxmox Live API"
-    }
-
-# Local AI Link Endpoint
 @app.post("/api/v1/chat")
 async def neural_link_chat(request: ChatRequest):
-    # 1. Dynamically format ALL live Proxmox data
-    lab_state_text = "CURRENT HOMELAB TELEMETRY:\n"
+    lab_state_text = "<RAW_TELEMETRY>\n"
     for node in request.context:
         d = node.get('data', {})
         if d:
-            metrics = ", ".join([f"{str(k).upper()}: {str(v)}" for k, v in d.items() if v])
+            services = ", ".join(d.get('sub_services', []))
+            cpu = d.get('cpu', 'N/A')
+            ram = d.get('ram', 'N/A')
+            disk = d.get('disk', 'N/A')
+            uptime = d.get('uptime', 'N/A')
             
-            # Include sub-services in the AI context if they exist
-            sub_services = d.get('sub_services', [])
-            if sub_services:
-                metrics += f", RUNNING SERVICES: {', '.join(sub_services)}"
-                
-            lab_state_text += f"- Node UID [{node.get('id')}]: {metrics}\n"
-    
-    # 2. Refined System Prompt
-    system_prompt = (
-        "You are InfraLens, an advanced, tactical AI assistant monitoring a Proxmox homelab. "
-        "Your responses should be concise, highly analytical, and conversational. "
-        "Do NOT copy-paste raw telemetry logs to the user. Instead, read the telemetry, extract the exact answer, "
-        "and present it naturally. Keep answers brief unless asked for a detailed analysis.\n\n"
-        f"{lab_state_text}"
-    )
+            lab_state_text += f"[{d.get('label')}] IP: {d.get('ip')} | Status: {d.get('status')} | CPU: {cpu} | RAM: {ram} | Disk: {disk} | Uptime: {uptime} | Apps: {services}\n"
+    lab_state_text += "</RAW_TELEMETRY>"
+        
+    system_prompt = f"""You are InfraLens, a sharp systems engineer, monitoring this Proxmox lab.
+        You are conversational, tactical, and highly analytical.
+
+        BEHAVIORAL RULES:
+        1. Greet the user naturally if they say Hi.
+        2. State facts directly. Do not say 'According to the telemetry'.
+        3. Refer to nodes by their Labels, not their ID numbers.
+        4. Keep answers short, BUT use highly structured formatting for readability.
+
+        CRITICAL FORMATTING RULES - DO NOT IGNORE:
+        You MUST translate <RAW_TELEMETRY> into professional Markdown.
+        You have a wide screen now. Use Markdown Headers (###) to separate distinct thoughts or data types.
+
+        WHEN LISTING CONTAINERS, USE THIS EXACT FORMAT:
+        ### Active Infrastructure
+        - **[Node Name]** (IP: [IP])
+          - Status: [Status]
+          - Running: [Services]
+          - Hardware: 
+            - CPU: [CPU]
+            - RAM: [RAM]
+            - Disk: [Disk]
+
+        WHEN CREATING A TABLE, USE THIS EXACT FORMAT. DO NOT SKIP COLUMNS:
+        ### Infrastructure Summary
+        | Node | Status | IP | CPU | RAM | Services |
+        |---|---|---|---|---|---|
+        | Name | Status | IP | CPU | RAM | Apps |
+
+        {lab_state_text}
+        """
 
     try:
-        # 3. Build the conversational message array for Ollama
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Append previous chat history so the AI remembers context
-        for msg in request.history:
+        for msg in request.history[-5:]:
             messages.append({"role": msg.role, "content": msg.content})
             
-        # Append the new user question
         messages.append({"role": "user", "content": request.prompt})
 
-        # 4. Use the /api/chat endpoint
         ollama_payload = {
             "model": "llama3", 
             "messages": messages,
             "stream": False
         }
         
-        response = requests.post("http://127.0.0.1:11434/api/chat", json=ollama_payload, timeout=30)
+        # Dynamically pull Ollama URL, defaulting to localhost
+        ollama_url = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+        
+        response = requests.post(f"{ollama_url}/api/chat", json=ollama_payload, timeout=30)
         response.raise_for_status()
         
-        # Extract the reply from the new JSON structure
-        reply = response.json().get("message", {}).get("content", "Error: No response generated.")
+        reply = response.json().get("message", {}).get("content", "Neural Link timeout.")
         return {"reply": reply}
         
-    except requests.exceptions.ConnectionError:
-        return {"reply": "[ERR] Cannot reach Ollama at 127.0.0.1:11434. Is the Ollama service running and accessible?"}
     except Exception as e:
-        return {"reply": f"[ERR] Neural Link failure: {str(e)}"}
+        return {"reply": f"Neural Link failure: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Allow the port to be defined by environment variables (default 8000)
+    api_port = int(os.getenv("API_PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=api_port)

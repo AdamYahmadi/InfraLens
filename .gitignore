@@ -22,7 +22,5 @@ __pycache__/
 .env.test.local
 .env.production.local
 
-# Data (Optional)
-# If you want to keep your specific homelab JSON private, 
-# uncomment the line below:
-# data/mock_infrastructure.json
+# Data (Optional for Testing)
+data/mock_infrastructure.json

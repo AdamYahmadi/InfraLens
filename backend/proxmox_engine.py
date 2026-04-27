@@ -12,6 +12,8 @@ class ProxmoxEngine:
         self.host = host.replace("https://", "").replace("http://", "").split(":")[0].strip()
         self.telemetry_cache = {} 
         
+        pve_port = int(os.getenv("PVE_PORT", 8006))
+        
         try:
             self.pve = ProxmoxAPI(
                 self.host,
@@ -19,10 +21,10 @@ class ProxmoxEngine:
                 token_name=token_name,
                 token_value=token_value,
                 verify_ssl=verify_ssl,
-                port=8006,
+                port=pve_port,
                 timeout=10
             )
-            print(f"ProxmoxEngine connected to: {self.host}")
+            print(f"ProxmoxEngine connected to: {self.host} on port {pve_port}")
         except Exception as e:
             print(f"Connection Error: {e}")
 
@@ -127,7 +129,7 @@ class ProxmoxEngine:
                         "data": {
                             "label": guest.get('name', vmid), 
                             "status": status,
-                            "uptime": self._format_uptime(guest.get('uptime', 0)), # 🚀 FIXED
+                            "uptime": self._format_uptime(guest.get('uptime', 0)),
                             "cpu": f"{(float(guest.get('cpu', 0) or 0) * 100):.1f}%",
                             "ram": f"{self._format_bytes(guest.get('mem', 0))} / {self._format_bytes(guest.get('maxmem', 1))}",
                             "disk": f"{self._format_bytes(guest.get('disk', 0))} / {self._format_bytes(guest.get('maxdisk', 1))}",

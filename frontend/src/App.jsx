@@ -6,6 +6,7 @@ import '@xyflow/react/dist/style.css';
 import ServiceNode from './components/ServiceNode';
 import { Activity, Globe, Send, Loader2, Cpu, HardDrive, Network, Clock, Sun, Moon, Layout, LayoutTemplate } from 'lucide-react';
 import ReactMarkdown from 'react-markdown'; 
+import remarkGfm from 'remark-gfm';
 
 const nodeTypes = { service: ServiceNode };
 
@@ -26,7 +27,6 @@ const getLayoutedElements = (nodes, edges, direction = 'LR') => {
 
   return nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    
     const xPos = nodeWithPosition ? nodeWithPosition.x - 90 : 0;
     const yPos = nodeWithPosition ? nodeWithPosition.y - 25 : 0;
 
@@ -46,19 +46,29 @@ function FlowWithProvider() {
   
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0); 
+  const [loadingStep, setLoadingStep] = useState(0); 
   
   const { fitView } = useReactFlow(); 
   
   const [isDarkMode, setIsDarkMode] = useState(true);
   const isDarkModeRef = useRef(isDarkMode);
 
-  const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'assistant', content: 'Connection established. How can I assist with the infrastructure?' }
-  ]);
-  const [isThinking, setIsThinking] = useState(false);
+  const chatInputRef = useRef(null);
   const chatScrollRef = useRef(null);
   const nodesRef = useRef([]);
+
+  const [chatInput, setChatInput] = useState('');
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'assistant', content: 'Chatbot established. I’m monitoring the stack.' }
+  ]);
+  const [isThinking, setIsThinking] = useState(false);
+
+  const loadingSteps = [
+    "Authenticating with Hypervisor...",
+    "Discovering network nodes...",
+    "Probing container services...",
+    "Aggregating telemetry..."
+  ];
 
   useEffect(() => {
     isDarkModeRef.current = isDarkMode;
@@ -81,35 +91,39 @@ function FlowWithProvider() {
   }, [isDarkMode, setEdges]);
 
   useEffect(() => {
-    if (nodes.length > 0) {
-      const timer = setTimeout(() => {
-        fitView({ padding: 0.2, duration: 800 });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [nodes.length, fitView]);
+    let progressInterval;
+    let textInterval;
 
-  useEffect(() => {
-    let interval;
     if (loading) {
       setLoadProgress(0);
-      interval = setInterval(() => {
+      setLoadingStep(0);
+      
+      progressInterval = setInterval(() => {
         setLoadProgress(prev => {
-          const increment = prev < 50 ? 8 : prev < 85 ? 3 : 0.5;
-          return prev >= 95 ? 95 : prev + increment;
+          const increment = prev < 60 ? 7 : prev < 90 ? 1.5 : 0.2;
+          return prev >= 98 ? 98 : prev + increment;
         });
-      }, 100);
+      }, 150);
+
+      textInterval = setInterval(() => {
+        setLoadingStep(prev => (prev < loadingSteps.length - 1 ? prev + 1 : prev));
+      }, 1200);
+
     } else {
       setLoadProgress(100); 
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(progressInterval);
+      clearInterval(textInterval);
+    };
   }, [loading]);
 
   const fetchInfra = useCallback(async () => {
     if (nodesRef.current.length === 0) setLoading(true);
 
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/v1/infrastructure');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/v1/infrastructure`);
       const rawNodes = response.data.nodes || [];
       const rawEdges = response.data.edges || [];
       const currentDark = isDarkModeRef.current; 
@@ -122,40 +136,40 @@ function FlowWithProvider() {
       }));
 
       setNodes((currentNodes) => {
-        if (currentNodes.length === 0 && rawNodes.length > 0) {
-          return getLayoutedElements(rawNodes, enhancedEdges);
-        }
-        if (currentNodes.length > 0 && currentNodes.length === rawNodes.length) {
-          return currentNodes.map(oldNode => {
-            const incomingNode = rawNodes.find(n => n.id === oldNode.id);
-            return incomingNode ? { ...oldNode, data: incomingNode.data } : oldNode;
-          });
-        }
-        return getLayoutedElements(rawNodes, enhancedEdges);
+        if (currentNodes.length === 0 && rawNodes.length > 0) return getLayoutedElements(rawNodes, enhancedEdges);
+        return currentNodes.map(oldNode => {
+          const incomingNode = rawNodes.find(n => n.id === oldNode.id);
+          return incomingNode ? { ...oldNode, data: incomingNode.data } : oldNode;
+        });
       });
-      
       setEdges(enhancedEdges);
       nodesRef.current = rawNodes;
+      
+      if (nodesRef.current.length === 0 && rawNodes.length > 0) {
+        setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 100);
+      }
+
     } catch (error) {
       console.error("Fetch Error:", error);
     } finally {
-      setTimeout(() => setLoading(false), 300);
+      setTimeout(() => setLoading(false), 500);
     }
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, fitView]);
 
   useEffect(() => {
     let isMounted = true;
-    
     const pollBackend = async () => {
       if (!isMounted) return;
       await fetchInfra();
       setTimeout(pollBackend, 5000); 
     };
-    
     pollBackend();
-    
     return () => { isMounted = false; };
   }, [fetchInfra]); 
+
+  useEffect(() => {
+    chatInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -181,40 +195,33 @@ function FlowWithProvider() {
     setChatInput('');
     setIsThinking(true);
 
+    setTimeout(() => chatInputRef.current?.focus(), 10);
+
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/v1/chat', {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/v1/chat`, {
         prompt: userMsg.content,
         context: cleanContext,
         history: chatHistory.map(msg => ({ role: msg.role, content: msg.content }))
       });
       setChatHistory(prev => [...prev, { role: 'assistant', content: response.data.reply }]);
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'assistant', content: "Connection error with AI service." }]);
+      setChatHistory(prev => [...prev, { role: 'assistant', content: "Connection interrupted." }]);
     } finally {
       setIsThinking(false);
+      setTimeout(() => chatInputRef.current?.focus(), 50);
     }
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const parseBytes = (str) => {
-    if (!str || str.includes('N/A')) return 0;
-    const match = str.match(/([\d.]+)\s*([KMGTP]?B)/i);
-    if (!match) return parseFloat(str) || 0;
-    const val = parseFloat(match[1]);
-    const unit = match[2].toUpperCase();
-    const multipliers = { 'B': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
-    return val * (multipliers[unit] || 1);
-  };
-
   const getPercentage = (usageString) => {
     if (!usageString || usageString === 'N/A') return '0%';
     const parts = usageString.split(' / ');
     if (parts.length < 2) return '0%';
-    const usedBytes = parseBytes(parts[0]);
-    const totalBytes = parseBytes(parts[1]);
-    if (totalBytes === 0) return '0%';
-    return `${Math.min(Math.max(Math.round((usedBytes / totalBytes) * 100), 0), 100)}%`;
+    const used = parseFloat(parts[0]);
+    const total = parseFloat(parts[1]);
+    if (total === 0) return '0%';
+    return `${Math.round((used / total) * 100)}%`;
   };
 
   const MetricRow = ({ icon: Icon, label, value, progress, accent }) => (
@@ -222,7 +229,7 @@ function FlowWithProvider() {
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
           <Icon size={14} />
-          <span className="text-xs">{label}</span>
+          <span className="text-xs font-medium">{label}</span>
         </div>
         <span className="text-xs font-mono text-zinc-800 dark:text-zinc-200">{value}</span>
       </div>
@@ -234,57 +241,65 @@ function FlowWithProvider() {
     </div>
   );
 
-  const isSelectedNodeOnline = selectedNode?.data.status?.toLowerCase() === 'running' || selectedNode?.data.status?.toLowerCase() === 'online';
-
   return (
     <div className="flex h-screen w-screen bg-zinc-50 dark:bg-[#09090b] overflow-hidden text-zinc-800 dark:text-zinc-200 font-sans transition-colors duration-300">
       
-      <div className="absolute top-4 left-[340px] z-50 text-[10px] font-mono text-zinc-400">
-        Active Nodes: {nodes.length}
-      </div>
-
-      <aside className="w-80 bg-white dark:bg-zinc-950/50 flex flex-col border-r border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl transition-colors duration-300">
-        <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center gap-3">
-          <div className="bg-zinc-100 dark:bg-white/5 p-1.5 rounded-lg border border-zinc-200 dark:border-white/5">
-             <Activity size={18} className="text-zinc-600 dark:text-zinc-300" />
+      {loading && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-zinc-50/80 dark:bg-[#09090b]/80 backdrop-blur-sm transition-opacity duration-500">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 p-8 rounded-2xl shadow-2xl flex flex-col items-center w-80">
+            <Loader2 size={32} className="text-zinc-900 dark:text-white animate-spin mb-5" />
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Initializing Workspace</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 h-4 text-center">
+              {loadingSteps[loadingStep]}
+            </p>
+            <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-900 rounded-full mt-6 overflow-hidden">
+              <div 
+                className="h-full bg-zinc-900 dark:bg-white transition-all duration-300 ease-out" 
+                style={{ width: `${loadProgress}%` }}
+              ></div>
+            </div>
           </div>
+        </div>
+      )}
+
+      <aside className="w-80 bg-white dark:bg-zinc-950/50 flex flex-col border-r border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl">
+        <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center gap-3">
+          <Activity size={18} className="text-zinc-400" />
           <span className="font-semibold tracking-tight text-sm text-zinc-900 dark:text-zinc-100">InfraLens</span>
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="ml-auto p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 transition-colors">
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="ml-auto p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
 
         <div className="flex-grow overflow-y-auto custom-scrollbar p-5">
           {selectedNode ? (
-            <div key={selectedNode.id} className="animate-in fade-in duration-300">
+            <div className="animate-in fade-in slide-in-from-left-2 duration-300">
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{selectedNode.data.label}</h2>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border uppercase ${isSelectedNodeOnline ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'}`}>
+                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{selectedNode.data.label}</h2>
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border ${selectedNode.data.status === 'running' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'}`}>
                     {selectedNode.data.status}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-500">UID: {selectedNode.id} • {selectedNode.data.os}</p>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tight">Node ID: {selectedNode.id}</p>
               </div>
 
-              <div className="bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-xl p-4 mb-4">
-                <MetricRow icon={Cpu} label="CPU Usage" value={selectedNode.data.cpu} progress={selectedNode.data.cpu} accent="bg-zinc-400 dark:bg-zinc-300" />
-                <MetricRow icon={HardDrive} label="Memory" value={selectedNode.data.ram} progress={getPercentage(selectedNode.data.ram)} accent="bg-zinc-500 dark:bg-zinc-500" />
-                <MetricRow icon={HardDrive} label="Disk" value={selectedNode.data.disk} progress={getPercentage(selectedNode.data.disk)} accent="bg-zinc-800 dark:bg-zinc-700" />
+              <div className="space-y-1 mb-6">
+                <MetricRow icon={Cpu} label="CPU" value={selectedNode.data.cpu || "N/A"} progress={selectedNode.data.cpu} accent="bg-zinc-800 dark:bg-zinc-200" />
+                <MetricRow icon={HardDrive} label="RAM" value={selectedNode.data.ram || "N/A"} progress={getPercentage(selectedNode.data.ram)} accent="bg-zinc-500" />
+                <MetricRow icon={HardDrive} label="Disk" value={selectedNode.data.disk || "N/A"} progress={getPercentage(selectedNode.data.disk)} accent="bg-zinc-600" />
+                <MetricRow icon={Network} label="IP Address" value={selectedNode.data.ip || "N/A"} />
+                <MetricRow icon={Clock} label="Uptime" value={selectedNode.data.uptime || "N/A"} />
               </div>
 
-              <div className="bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 rounded-xl p-4 mb-6">
-                <MetricRow icon={Network} label="Internal IP" value={selectedNode.data.ip} />
-              </div>
-
-              {selectedNode.data.sub_services && selectedNode.data.sub_services.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-3 px-1">Discovered Services</h3>
+              {selectedNode.data.sub_services?.length > 0 && (
+                <div>
+                  <h3 className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3">Active Services</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedNode.data.sub_services.map((svc, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-white/5 px-3 py-1.5 rounded-lg">
-                        <LayoutTemplate size={12} className="text-zinc-500" />
-                        <span className="text-xs font-mono text-zinc-700 dark:text-zinc-300">{svc}</span>
+                      <div key={idx} className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/5 px-3 py-1.5 rounded-lg text-xs font-mono">
+                        <LayoutTemplate size={12} className="text-zinc-400" />
+                        {svc}
                       </div>
                     ))}
                   </div>
@@ -292,93 +307,80 @@ function FlowWithProvider() {
               )}
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-               <Globe size={32} className="mb-3 text-zinc-500" />
-               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Select a node to view<br/>telemetry data</p>
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+               <Globe size={32} className="mb-4" />
+               <p className="text-xs font-medium">Select a node to inspect<br/>live telemetry</p>
             </div>
           )}
         </div>
       </aside>
 
-      <main className="relative flex-grow h-full z-10 min-w-0 min-h-0 bg-zinc-50 dark:bg-[#0d0d0d] transition-colors duration-300">
-        
-        {/* PROGRESS BAR LOADER */}
-        {loading && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] transition-opacity duration-500">
-            <div className="flex flex-col items-center w-48">
-              
-              <div className="relative w-16 h-16 flex items-center justify-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-sm mb-6">
-                 <div className="absolute inset-0 rounded-2xl border border-zinc-400/30 dark:border-zinc-500/30 animate-ping" style={{ animationDuration: '3s' }}></div>
-                 <Activity size={24} className="text-zinc-800 dark:text-zinc-200" />
-              </div>
-
-              <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 tracking-wide mb-3">
-                Loading Workspace
-              </h2>
-              
-              {/* 🚀 The actual progress element mapped to our state */}
-              <div className="w-full h-[3px] bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-cyan-500 rounded-full transition-all duration-150 ease-out shadow-[0_0_8px_rgba(6,182,212,0.6)]" 
-                  style={{ width: `${loadProgress}%` }}
-                ></div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        <div className="w-full h-full">
-          <ReactFlow
-            colorMode={isDarkMode ? "dark" : "light"}
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            onNodeClick={(e, n) => setSelectedNodeId(n.id)}
-            onPaneClick={() => setSelectedNodeId(null)}
-            fitView
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background color={isDarkMode ? "#27272a" : "#e4e4e7"} gap={25} variant="dots" size={1.5} />
-            <Controls showInteractive={false} className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/5 fill-zinc-600 dark:fill-zinc-400 rounded-lg shadow-xl">
-              <ControlButton onClick={handleReorder} title="Reorder Layout"><Layout size={14} /></ControlButton>
-            </Controls>
-          </ReactFlow>
-        </div>
+      <main className="relative flex-grow h-full bg-zinc-50 dark:bg-[#0d0d0d]">
+        <ReactFlow
+          colorMode={isDarkMode ? "dark" : "light"}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          onNodeClick={(e, n) => setSelectedNodeId(n.id)}
+          onPaneClick={() => setSelectedNodeId(null)}
+          fitView
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color={isDarkMode ? "#222" : "#ddd"} gap={20} variant="dots" />
+          <Controls showInteractive={false} className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/5 fill-zinc-400 rounded-lg shadow-xl">
+            <ControlButton onClick={handleReorder} title="Reorder Layout"><Layout size={14} /></ControlButton>
+          </Controls>
+        </ReactFlow>
       </main>
 
-      <aside className="w-[400px] bg-white dark:bg-zinc-950/50 flex flex-col border-l border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl transition-colors duration-300">
+      <aside className="w-[500px] bg-white dark:bg-zinc-950/50 flex flex-col border-l border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl transition-all duration-300">
         <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center justify-between">
-           <span className="font-medium text-sm text-zinc-900 dark:text-zinc-200">AI Assistant</span>
+           <span className="font-semibold text-xs uppercase tracking-widest text-zinc-500">Ai Chatbot</span>
            <div className="flex items-center gap-2">
-             <div className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-cyan-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-             <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">{isThinking ? 'Processing' : 'Ready'}</span>
+             <div className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-zinc-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+             <span className="text-[10px] font-bold text-zinc-400 uppercase">{isThinking ? 'Thinking' : 'Online'}</span>
            </div>
         </div>
         
-        <div ref={chatScrollRef} className="flex-grow overflow-y-auto p-5 space-y-6 custom-scrollbar">
+        <div ref={chatScrollRef} className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
           {chatHistory.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] text-sm leading-relaxed ${msg.role === 'user' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2.5 rounded-2xl rounded-tr-sm' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start w-full'}`}>
+              
+              <div className={
+                msg.role === 'user' 
+                ? 'max-w-[80%] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm' 
+                : 'w-full text-zinc-700 dark:text-zinc-300' 
+              }>
+                
+                <div className={
+                  msg.role === 'user' ? '' : 
+                  "text-sm leading-relaxed space-y-4 [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ul>li]:mb-1.5 [&>table]:block [&>table]:w-full [&>table]:overflow-x-auto [&>table]:whitespace-nowrap [&>table]:text-left [&>table]:border-collapse [&_th]:px-4 [&_th]:py-3 [&_th]:border-b [&_th]:border-zinc-300 dark:[&_th]:border-zinc-600 [&_th]:bg-zinc-100 dark:[&_th]:bg-zinc-800/50 [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-zinc-200 dark:[&_td]:border-zinc-800 [&_td]:align-middle [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&>h3]:text-lg [&>h3]:font-bold [&>h3]:text-zinc-900 dark:[&>h3]:text-zinc-100 [&>h3]:mt-6 [&>h3]:mb-3"
+                }>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                </div>
+
               </div>
             </div>
           ))}
           {isThinking && (
-            <div className="flex justify-start text-zinc-500 text-sm"><Loader2 size={14} className="animate-spin mr-2" /> Thinking...</div>
+            <div className="flex justify-start text-zinc-400 text-[10px] uppercase font-bold tracking-widest mt-4">
+              <Loader2 size={12} className="animate-spin mr-2" /> Processing...
+            </div>
           )}
         </div>
 
         <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-white/5">
           <form onSubmit={handleChatSubmit} className="relative flex items-center">
             <input 
+              ref={chatInputRef}
               value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask about your infrastructure..." 
-              className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-300 dark:focus:border-zinc-700 transition-colors" disabled={isThinking}
+              placeholder="Query infrastructure..." 
+              className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm outline-none focus:border-zinc-400 transition-colors" 
+              disabled={isThinking}
             />
-            <button type="submit" disabled={isThinking || !chatInput.trim()} className="absolute right-2 p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer disabled:opacity-50">
+            <button type="submit" disabled={isThinking || !chatInput.trim()} className="absolute right-2 p-1.5 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors">
               <Send size={16} />
             </button>
           </form>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Server, ShieldCheck, HardDrive, Globe, Activity, LayoutTemplate } from 'lucide-react';
+import { Server, ShieldCheck, HardDrive, Globe, Activity, LayoutTemplate, Database } from 'lucide-react';
 
 const iconMap = {
   dns: <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />,
@@ -9,21 +9,27 @@ const iconMap = {
   network: <Globe size={16} className="text-indigo-600 dark:text-indigo-400" />,
   dashboard: <Activity size={16} className="text-rose-600 dark:text-rose-400" />,
   docker: <LayoutTemplate size={16} className="text-cyan-600 dark:text-cyan-400" />,
+  database: <Database size={16} className="text-amber-600 dark:text-amber-400" />,
   host: <Server size={16} className="text-zinc-500 dark:text-zinc-400" />
 };
 
 const getIcon = (tags, label) => {
   if (tags && tags.length > 0) {
     for (let tag of tags) {
-      if (iconMap[tag]) return iconMap[tag];
+      const lowerTag = tag.toLowerCase();
+      if (iconMap[lowerTag]) return iconMap[lowerTag];
     }
   }
+  
   const lowerLabel = (label || '').toLowerCase();
-  if (lowerLabel.includes('pihole')) return iconMap.dns;
-  if (lowerLabel.includes('nextcloud')) return iconMap.storage;
-  if (lowerLabel.includes('tailscale')) return iconMap.network;
-  if (lowerLabel.includes('homepage')) return iconMap.dashboard;
-  if (lowerLabel.includes('adamlab')) return iconMap.host;
+  
+  if (lowerLabel.includes('pihole') || lowerLabel.includes('adguard') || lowerLabel.includes('dns')) return iconMap.dns;
+  if (lowerLabel.includes('cloud') || lowerLabel.includes('nas') || lowerLabel.includes('storage') || lowerLabel.includes('smb')) return iconMap.storage;
+  if (lowerLabel.includes('vpn') || lowerLabel.includes('tailscale') || lowerLabel.includes('wireguard') || lowerLabel.includes('proxy')) return iconMap.network;
+  if (lowerLabel.includes('dash') || lowerLabel.includes('home') || lowerLabel.includes('monitor')) return iconMap.dashboard;
+  if (lowerLabel.includes('db') || lowerLabel.includes('sql') || lowerLabel.includes('redis') || lowerLabel.includes('mongo')) return iconMap.database;
+  if (lowerLabel.includes('pve') || lowerLabel.includes('proxmox') || lowerLabel.includes('node') || lowerLabel.includes('host')) return iconMap.host;
+  
   return <Server size={16} className="text-zinc-400 dark:text-zinc-500" />;
 };
 
@@ -40,7 +46,6 @@ export default function ServiceNode({ data, selected }) {
   return (
     <div className={`px-4 py-2.5 rounded-xl backdrop-blur-md border transition-all duration-200 min-w-[160px] flex items-center justify-between gap-4 ${borderStyle}`}>
       
-      {/* Target port on the left for LR flow */}
       <Handle type="target" position={Position.Left} className="opacity-0 w-0 h-0" />
 
       <div className="flex items-center gap-3">
@@ -58,7 +63,6 @@ export default function ServiceNode({ data, selected }) {
 
       <div className={`h-2 w-2 rounded-full shrink-0 ${statusColor} ${opacity}`} />
 
-      {/* Source port on the right for LR flow */}
       <Handle type="source" position={Position.Right} className="opacity-0 w-0 h-0" />
     </div>
   );
