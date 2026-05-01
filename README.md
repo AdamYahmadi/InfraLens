@@ -60,6 +60,7 @@ InfraLens is a tool that turns your Proxmox server data into an interactive map.
 <br>
 
 <img src="./docs/node-details.png" alt="Node Details" width="400" />
+<br>
 *Live tracking of resource consumption and active services for individual VMs and LXCs.*
 </details>
 
