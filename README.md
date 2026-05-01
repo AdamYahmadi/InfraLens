@@ -59,7 +59,7 @@ InfraLens is a tool that turns your Proxmox server data into an interactive map.
 <summary><b>Real-Time Telemetry Modal</b></summary>
 <br>
 
-![Node Details](./docs/node-details.png)
+<img src="./docs/node-details.png" alt="Node Details" width="400" />
 *Live tracking of resource consumption and active services for individual VMs and LXCs.*
 </details>
 
@@ -74,7 +74,7 @@ InfraLens is a tool that turns your Proxmox server data into an interactive map.
 
 ### 1. Repository Initialization
 ```bash
-git clone [https://github.com/AdamYahmadi/InfraLens.git](https://github.com/AdamYahmadi/InfraLens.git)
+git clone https://github.com/AdamYahmadi/InfraLens.git
 cd InfraLens
 ```
 
