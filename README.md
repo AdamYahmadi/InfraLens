@@ -101,4 +101,4 @@ npm run dev
 
 ## License
 
-Released under the MIT License. See [LICENSE](LICENSE) for details.
+Released under the MIT License.
