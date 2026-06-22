@@ -75,7 +75,7 @@ async def get_config():
 
 
 @app.post("/api/v1/config")
-async def update_config(update: ConfigUpdate):
+def update_config(update: ConfigUpdate):
     # Only overwrite secrets when a non-empty value is supplied, so the UI can
     # leave the password/token fields blank to keep the existing secret.
     incoming = update.model_dump(exclude_none=True)
@@ -102,17 +102,17 @@ class OllamaTest(BaseModel):
 
 
 @app.post("/api/v1/test/proxmox")
-async def test_proxmox(p: ProxmoxTest):
+def test_proxmox(p: ProxmoxTest):
     return manager.test_proxmox(p.model_dump())
 
 
 @app.post("/api/v1/test/ollama")
-async def test_ollama(p: OllamaTest):
+def test_ollama(p: OllamaTest):
     return manager.test_ollama(p.ollama_url, p.ollama_model)
 
 
 @app.get("/api/v1/health")
-async def health():
+def health():
     return {
         "version": APP_VERSION,
         "configured": config_store.is_configured(),
@@ -125,7 +125,7 @@ async def health():
 #  Infrastructure
 # --------------------------------------------------------------------------- #
 @app.get("/api/v1/infrastructure")
-async def get_infrastructure():
+def get_infrastructure():
     if not config_store.is_configured():
         return {"nodes": [], "edges": [],
                 "error": "not_configured",
@@ -169,7 +169,7 @@ async def get_infrastructure():
 #  Chat / LLM
 # --------------------------------------------------------------------------- #
 @app.post("/api/v1/chat")
-async def neural_link_chat(request: ChatRequest):
+def neural_link_chat(request: ChatRequest):
     cfg = config_store.load_config()
 
     lab_state_text = "<RAW_TELEMETRY>\n"

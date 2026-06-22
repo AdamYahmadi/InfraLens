@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { api } from "./api";
 import Settings from "./Settings";
@@ -6,36 +6,55 @@ import Onboarding from "./Onboarding";
 import App from "./App.jsx";
 import { Loader2, Settings as SettingsIcon, AlertTriangle, RefreshCw } from "lucide-react";
 
-/**
- * Decides what to show:
- *   - backend unreachable  -> retry screen
- *   - not configured       -> first-run Settings
- *   - configured           -> the InfraLens app, with a status banner + a
- *                             settings button to reopen configuration.
- */
 export default function AppShell() {
   const [phase, setPhase] = useState("loading"); // loading | offline | setup | ready
   const [showSettings, setShowSettings] = useState(false);
   const [health, setHealth] = useState(null);
+  const failures = useRef(0);
+  const startupTries = useRef(0);
 
   const probe = useCallback(async () => {
     try {
-      const { data } = await axios.get(api("/api/v1/health"), { timeout: 6000 });
+      const { data } = await axios.get(api("/api/v1/health"), { timeout: 12000 });
+      failures.current = 0;
       setHealth(data);
       setPhase(data.configured ? "ready" : "setup");
     } catch {
-      setPhase("offline");
+      failures.current += 1;
+      setPhase((prev) => {
+        if (prev === "ready" && failures.current < 4) return "ready";
+        return "offline";
+      });
     }
   }, []);
 
-  useEffect(() => { probe(); }, [probe]);
+  useEffect(() => {
+    let cancelled = false;
+    const tryStart = async () => {
+      await probe();
+      if (cancelled) return;
+      startupTries.current += 1;
+    };
+    tryStart();
+    const id = setInterval(() => {
+      if (failures.current > 0 && startupTries.current < 8) tryStart();
+      else clearInterval(id);
+    }, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [probe]);
 
-  // Poll health while the app is running so the banner stays current.
   useEffect(() => {
     if (phase !== "ready") return;
-    const id = setInterval(probe, 15000);
+    const id = setInterval(probe, 20000);
     return () => clearInterval(id);
   }, [phase, probe]);
+
+  const retry = useCallback(() => {
+    failures.current = 0;
+    startupTries.current = 0;
+    setPhase("loading");
+    probe();
+  }, [probe]);
 
   if (phase === "loading") {
     return (
@@ -54,7 +73,7 @@ export default function AppShell() {
           <p className="text-sm text-slate-400 mb-4">
             The InfraLens engine isn’t answering yet. It may still be starting up.
           </p>
-          <button onClick={probe}
+          <button onClick={retry}
             className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm">
             <RefreshCw size={16} /> Retry
           </button>
@@ -67,7 +86,6 @@ export default function AppShell() {
     return <Onboarding onDone={probe} />;
   }
 
-  // ready
   return (
     <div className="relative">
       <StatusBanner health={health} onFix={() => setShowSettings(true)} />
@@ -102,8 +120,7 @@ function StatusBanner({ health, onFix }) {
     <div className="sticky top-0 z-40 bg-amber-500/15 border-b border-amber-500/30 text-amber-200 text-sm px-4 py-2 flex items-center gap-3">
       <AlertTriangle size={16} className="shrink-0" />
       <span className="truncate">{problems.join("  •  ")}</span>
-      <button onClick={onFix}
-        className="ml-auto shrink-0 underline hover:no-underline">Fix in settings</button>
+      <button onClick={onFix} className="ml-auto shrink-0 underline hover:no-underline">Fix in settings</button>
     </div>
   );
 }
