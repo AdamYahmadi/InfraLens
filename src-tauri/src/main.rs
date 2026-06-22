@@ -12,38 +12,33 @@ struct Backend(Mutex<Option<CommandChild>>);
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Backend(Mutex::new(None)))
         .setup(|app| {
-            // Launch the bundled Python backend as a sidecar process.
-            let sidecar = app
-                .shell()
-                .sidecar("infralens-backend")
-                .expect("failed to resolve `infralens-backend` sidecar");
-
-            let (mut rx, child) = sidecar
-                .spawn()
-                .expect("failed to spawn InfraLens backend");
-
-            // Keep the handle so we can kill it when the app closes.
-            let state: State<Backend> = app.state();
-            *state.0.lock().unwrap() = Some(child);
-
-            // Surface backend logs in the app's stdout for debugging.
-            tauri::async_runtime::spawn(async move {
-                while let Some(event) = rx.recv().await {
-                    match event {
-                        CommandEvent::Stdout(line) => {
-                            print!("[backend] {}", String::from_utf8_lossy(&line));
-                        }
-                        CommandEvent::Stderr(line) => {
-                            eprint!("[backend] {}", String::from_utf8_lossy(&line));
-                        }
-                        _ => {}
+            // Launch the bundled Python backend as a sidecar. If it fails,
+            // log it but still open the window so the UI can show a status.
+            match app.shell().sidecar("infralens-backend") {
+                Ok(sidecar) => match sidecar.spawn() {
+                    Ok((mut rx, child)) => {
+                        let state: State<Backend> = app.state();
+                        *state.0.lock().unwrap() = Some(child);
+                        tauri::async_runtime::spawn(async move {
+                            while let Some(event) = rx.recv().await {
+                                match event {
+                                    CommandEvent::Stdout(line) => {
+                                        print!("[backend] {}", String::from_utf8_lossy(&line));
+                                    }
+                                    CommandEvent::Stderr(line) => {
+                                        eprint!("[backend] {}", String::from_utf8_lossy(&line));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        });
                     }
-                }
-            });
-
+                    Err(e) => eprintln!("[infralens] failed to spawn backend: {e}"),
+                },
+                Err(e) => eprintln!("[infralens] could not resolve backend sidecar: {e}"),
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
