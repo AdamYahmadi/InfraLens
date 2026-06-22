@@ -2,12 +2,12 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "InfraLens",
   "version": "0.1.0",
-  "identifier": "com.infralens.app",
+  "identifier": "com.infralens.desktop",
   "build": {
     "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm --prefix ../frontend run dev",
-    "beforeBuildCommand": "npm --prefix ../frontend run build"
+    "beforeDevCommand": "npm --prefix frontend run dev",
+    "beforeBuildCommand": "npm --prefix frontend run build"
   },
   "app": {
     "windows": [
@@ -35,17 +35,9 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/infralens-backend"],
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "category": "DeveloperTool",
     "shortDescription": "Proxmox homelab topology, monitoring & AI diagnostics",
     "longDescription": "InfraLens visualises your Proxmox cluster in real time, streams per-node telemetry, detects running services, and answers questions about your infrastructure using a local Ollama model. Everything stays on your network."
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/OWNER/REPO/releases/latest/download/latest.json"
-      ],
-      "pubkey": "PUT_YOUR_TAURI_PUBLIC_KEY_HERE"
-    }
   }
 }
