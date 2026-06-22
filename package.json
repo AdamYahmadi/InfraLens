@@ -1,0 +1,15 @@
+{
+  "name": "infralens-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop tooling (Tauri CLI) for the InfraLens app",
+  "scripts": {
+    "tauri": "tauri",
+    "icon": "tauri icon ./appicon.png",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

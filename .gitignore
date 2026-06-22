@@ -1,0 +1,38 @@
+# IDEs
+.vscode/
+.idea/
+
+# Node / Frontend
+node_modules/
+dist/
+.eslintcache
+*.local
+
+# Python / Backend
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment & Secrets (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Data (Optional for Testing)
+data/mock_infrastructure.json
+
+# ---- Desktop build artifacts ----
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/binaries/*
+!/src-tauri/binaries/.gitkeep
+/src-tauri/icons/
+backend/build/
+backend/dist/
+backend/__pycache__/
+node_modules/
+frontend/dist/
