@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { api } from "./api";
-import { Loader2, ServerCog, CheckCircle2, XCircle, Save, X } from "lucide-react";
+import { X, Loader2, Check, AlertTriangle, LogOut } from "lucide-react";
 
-/**
- * Settings / first-run screen.
- *
- * Props:
- *   onSaved()    - called after a successful save
- *   onClose()    - optional; if provided, shows a close button (settings reopened
- *                  from inside the app rather than first-run)
- */
-export default function Settings({ onSaved, onClose }) {
+
+export default function Settings({ onClose, onSaved, onReset }) {
   const [form, setForm] = useState({
     pve_host: "", pve_port: "8006", pve_user: "", pve_token_name: "",
     pve_token_value: "", pve_verify_ssl: false,
@@ -22,186 +15,180 @@ export default function Settings({ onSaved, onClose }) {
   const [sshSet, setSshSet] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [health, setHealth] = useState(null);
-  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
-  // Load any existing config so re-opening Settings is pre-filled.
   useEffect(() => {
-    axios.get(api("/api/v1/config"))
-      .then(({ data }) => {
-        setForm((f) => ({
-          ...f,
-          pve_host: data.pve_host || "",
-          pve_port: data.pve_port || "8006",
-          pve_user: data.pve_user || "",
-          pve_token_name: data.pve_token_name || "",
-          pve_verify_ssl: !!data.pve_verify_ssl,
-          ssh_user: data.ssh_user || "root",
-          ollama_url: data.ollama_url || "http://127.0.0.1:11434",
-          ollama_model: data.ollama_model || "llama3",
-        }));
-        setTokenSet(!!data.pve_token_value_set);
-        setSshSet(!!data.ssh_password_set);
-      })
-      .catch(() => setError("Could not reach the InfraLens backend. Is it running?"))
-      .finally(() => setLoading(false));
+    axios.get(api("/api/v1/config")).then(({ data }) => {
+      setForm((f) => ({
+        ...f,
+        pve_host: data.pve_host || "", pve_port: data.pve_port || "8006",
+        pve_user: data.pve_user || "", pve_token_name: data.pve_token_name || "",
+        pve_verify_ssl: !!data.pve_verify_ssl,
+        ssh_user: data.ssh_user || "root",
+        ollama_url: data.ollama_url || "http://127.0.0.1:11434",
+        ollama_model: data.ollama_model || "llama3",
+      }));
+      setTokenSet(!!data.pve_token_value_set);
+      setSshSet(!!data.ssh_password_set);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const set = (k) => (e) => {
     const v = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [k]: v }));
+    setResult(null);
   };
 
   const save = async () => {
-    setSaving(true);
-    setError(null);
-    setHealth(null);
+    setSaving(true); setResult(null);
     try {
-      // Blank secret fields are omitted server-side, preserving stored secrets.
       const payload = { ...form };
       if (tokenSet && !payload.pve_token_value) delete payload.pve_token_value;
       if (sshSet && !payload.ssh_password) delete payload.ssh_password;
-
       await axios.post(api("/api/v1/config"), payload);
       const { data } = await axios.get(api("/api/v1/health"));
-      setHealth(data);
-      if (data.configured && data.proxmox.ok) {
-        onSaved?.();
-      }
-    } catch (e) {
-      setError("Save failed. Check that the backend is running and try again.");
-    } finally {
-      setSaving(false);
+      setResult({ ok: data.proxmox.ok, msg: data.proxmox.detail });
+      onSaved?.();
+    } catch {
+      setResult({ ok: false, msg: "Save failed. Is the backend running?" });
+    } finally { setSaving(false); }
+  };
+
+  const disconnect = async () => {
+    setResetting(true);
+    try {
+      await axios.post(api("/api/v1/config/reset"));
+      onReset?.();
+    } catch {
+      setResetting(false);
+      setResult({ ok: false, msg: "Couldn’t disconnect. Is the backend running?" });
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
-        <Loader2 className="animate-spin mr-2" /> Loading settings…
-      </div>
-    );
-  }
-
-  const field = "w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60";
-  const label = "block text-xs font-medium text-slate-400 mb-1";
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-start justify-center py-10 px-4 overflow-auto">
-      <div className="w-full max-w-xl">
-        <div className="flex items-center gap-3 mb-1">
-          <ServerCog className="text-emerald-400" />
-          <h1 className="text-xl font-semibold">InfraLens setup</h1>
-          {onClose && (
-            <button onClick={onClose}
-              className="ml-auto text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800">
-              <X size={18} />
-            </button>
-          )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative w-full max-w-lg max-h-[85vh] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col text-zinc-900 dark:text-zinc-100">
+
+        <div className="px-6 py-4 border-b border-zinc-200 dark:border-white/5 flex items-center justify-between shrink-0">
+          <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500"><X size={16} /></button>
         </div>
-        <p className="text-sm text-slate-400 mb-6">
-          Connect InfraLens to your Proxmox cluster and local Ollama. These
-          details are stored only on this machine.
-        </p>
 
-        <section className="space-y-4 bg-slate-900/40 border border-slate-800 rounded-2xl p-5 mb-5">
-          <h2 className="text-sm font-semibold text-emerald-400">Proxmox API</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className={label}>Host / IP</label>
-              <input className={field} placeholder="192.168.1.50" value={form.pve_host} onChange={set("pve_host")} />
-            </div>
-            <div>
-              <label className={label}>Port</label>
-              <input className={field} value={form.pve_port} onChange={set("pve_port")} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={label}>API user</label>
-              <input className={field} placeholder="root@pam" value={form.pve_user} onChange={set("pve_user")} />
-            </div>
-            <div>
-              <label className={label}>Token name</label>
-              <input className={field} placeholder="infralens" value={form.pve_token_name} onChange={set("pve_token_name")} />
-            </div>
-          </div>
-          <div>
-            <label className={label}>
-              Token value {tokenSet && <span className="text-slate-500">(saved — leave blank to keep)</span>}
-            </label>
-            <input type="password" className={field}
-              placeholder={tokenSet ? "••••••••••••" : "xxxx-xxxx-xxxx-xxxx"}
-              value={form.pve_token_value} onChange={set("pve_token_value")} />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={form.pve_verify_ssl} onChange={set("pve_verify_ssl")} />
-            Verify SSL certificate
-          </label>
-        </section>
+        {loading ? (
+          <div className="h-48 flex items-center justify-center text-zinc-400"><Loader2 className="animate-spin" /></div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-7">
+              <Section title="Proxmox API">
+                <Row>
+                  <Field grow label="Host / IP" value={form.pve_host} onChange={set("pve_host")} />
+                  <Field label="Port" w="80px" value={form.pve_port} onChange={set("pve_port")} />
+                </Row>
+                <Row>
+                  <Field label="API user" value={form.pve_user} onChange={set("pve_user")} />
+                  <Field label="Token name" value={form.pve_token_name} onChange={set("pve_token_name")} />
+                </Row>
+                <Field label={`Token value${tokenSet ? " — saved, leave blank to keep" : ""}`} type="password"
+                  placeholder={tokenSet ? "••••••••••••" : ""} value={form.pve_token_value} onChange={set("pve_token_value")} />
+                <Toggle checked={form.pve_verify_ssl} onChange={set("pve_verify_ssl")}>Verify SSL certificate</Toggle>
+              </Section>
 
-        <section className="space-y-4 bg-slate-900/40 border border-slate-800 rounded-2xl p-5 mb-5">
-          <h2 className="text-sm font-semibold text-emerald-400">SSH probe (optional)</h2>
-          <p className="text-xs text-slate-500 -mt-2">Used to detect services running inside LXC containers.</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={label}>SSH user</label>
-              <input className={field} value={form.ssh_user} onChange={set("ssh_user")} />
-            </div>
-            <div>
-              <label className={label}>
-                SSH password {sshSet && <span className="text-slate-500">(saved)</span>}
-              </label>
-              <input type="password" className={field}
-                placeholder={sshSet ? "••••••••" : ""}
-                value={form.ssh_password} onChange={set("ssh_password")} />
-            </div>
-          </div>
-        </section>
+              <Section title="SSH probe">
+                <Row>
+                  <Field label="SSH user" value={form.ssh_user} onChange={set("ssh_user")} />
+                  <Field label={`SSH password${sshSet ? " — saved" : ""}`} type="password"
+                    placeholder={sshSet ? "••••••••" : ""} value={form.ssh_password} onChange={set("ssh_password")} />
+                </Row>
+              </Section>
 
-        <section className="space-y-4 bg-slate-900/40 border border-slate-800 rounded-2xl p-5 mb-5">
-          <h2 className="text-sm font-semibold text-emerald-400">Ollama (AI diagnostics)</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={label}>Ollama URL</label>
-              <input className={field} value={form.ollama_url} onChange={set("ollama_url")} />
-            </div>
-            <div>
-              <label className={label}>Model</label>
-              <input className={field} value={form.ollama_model} onChange={set("ollama_model")} />
-            </div>
-          </div>
-        </section>
+              <Section title="Ollama (AI)">
+                <Row>
+                  <Field grow label="Ollama URL" value={form.ollama_url} onChange={set("ollama_url")} />
+                  <Field label="Model" value={form.ollama_model} onChange={set("ollama_model")} />
+                </Row>
+              </Section>
 
-        {error && (
-          <div className="flex items-center gap-2 text-sm text-rose-400 mb-4">
-            <XCircle size={16} /> {error}
-          </div>
+              {result && (
+                <div className={`flex items-start gap-2 text-[13px] ${result.ok ? "text-emerald-500" : "text-rose-500"}`}>
+                  {result.ok ? <Check size={14} /> : <AlertTriangle size={14} />}
+                  <span className="text-zinc-600 dark:text-zinc-300">{result.msg}</span>
+                </div>
+              )}
+            </div>
+
+            {confirmReset ? (
+              <div className="px-6 py-4 border-t border-zinc-200 dark:border-white/5 shrink-0 flex items-center gap-3">
+                <AlertTriangle size={16} className="text-rose-500 shrink-0" />
+                <span className="text-[13px] text-zinc-600 dark:text-zinc-300 flex-1">Disconnect and erase your saved settings?</span>
+                <button onClick={() => setConfirmReset(false)} className={btnGhost}>Cancel</button>
+                <button onClick={disconnect} disabled={resetting} className={btnDanger}>
+                  {resetting ? <Loader2 size={14} className="animate-spin" /> : null} Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="px-6 py-4 border-t border-zinc-200 dark:border-white/5 shrink-0 flex items-center justify-between">
+                <button onClick={() => setConfirmReset(true)}
+                  className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-rose-500 transition-colors">
+                  <LogOut size={14} /> Disconnect
+                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={onClose} className={btnGhost}>Cancel</button>
+                  <button onClick={save} disabled={saving} className={btnPrimary}>
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {saving ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-        {health && (
-          <div className="space-y-2 mb-4 text-sm">
-            <HealthRow label="Proxmox" ok={health.proxmox.ok} detail={health.proxmox.detail} />
-            <HealthRow label="Ollama" ok={health.ollama.ok} detail={health.ollama.detail} />
-          </div>
-        )}
-
-        <button onClick={save} disabled={saving}
-          className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium rounded-xl py-3 transition">
-          {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-          {saving ? "Testing connection…" : "Save & connect"}
-        </button>
       </div>
     </div>
   );
 }
 
-function HealthRow({ label, ok, detail }) {
+function Section({ title, children }) {
   return (
-    <div className="flex items-start gap-2">
-      {ok ? <CheckCircle2 className="text-emerald-400 mt-0.5" size={16} />
-          : <XCircle className="text-rose-400 mt-0.5" size={16} />}
-      <span className="text-slate-300"><b>{label}:</b> {detail}</span>
+    <div className="space-y-4">
+      <h3 className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">{title}</h3>
+      {children}
     </div>
   );
 }
+
+function Row({ children }) { return <div className="flex gap-3">{children}</div>; }
+
+function Field({ label, value, onChange, placeholder, type = "text", grow, w }) {
+  return (
+    <label className={`flex flex-col gap-1.5 ${grow ? "flex-1" : ""}`} style={w ? { flex: `0 0 ${w}` } : undefined}>
+      <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">{label}</span>
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-400 dark:placeholder:text-zinc-600" />
+    </label>
+  );
+}
+
+function Toggle({ checked, onChange, children }) {
+  return (
+    <label className="flex items-center gap-2.5 text-[13px] text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
+      <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 accent-zinc-900 dark:accent-white" />
+      {children}
+    </label>
+  );
+}
+
+const btnPrimary =
+  "inline-flex items-center gap-2 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 disabled:opacity-50 text-sm font-medium rounded-lg px-4 py-2 transition-colors";
+const btnGhost =
+  "inline-flex items-center text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg px-3 py-2 transition-colors";
+const btnDanger =
+  "inline-flex items-center gap-1.5 bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50 text-sm font-medium rounded-lg px-4 py-2 transition-colors";

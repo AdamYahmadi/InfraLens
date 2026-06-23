@@ -1,28 +1,11 @@
-"""
-Persistent, per-user configuration for the InfraLens desktop app.
-
-Settings entered in the first-run UI are written here as JSON in the
-platform's standard application-data directory, so the app no longer
-depends on a hand-edited .env file:
-
-    macOS : ~/Library/Application Support/InfraLens/config.json
-    Linux : $XDG_CONFIG_HOME/InfraLens/config.json  (falls back to ~/.config)
-
-A .env file, if present, is still honoured as a fallback/override so the
-existing "server mode" workflow keeps working for power users.
-"""
-
 import os
 import sys
 import json
 from pathlib import Path
 
 APP_NAME = "InfraLens"
-
-# Keys that are secret -> never returned to the UI in plaintext.
 SECRET_KEYS = {"pve_token_value", "ssh_password"}
 
-# The full set of settings the app understands, with safe defaults.
 DEFAULTS = {
     "pve_host": "",
     "pve_port": "8006",
@@ -36,8 +19,6 @@ DEFAULTS = {
     "ollama_model": "llama3",
 }
 
-# Maps our config keys onto the environment-variable names that the existing
-# proxmox_engine.py / service_probe.py modules already read.
 ENV_MAP = {
     "pve_host": "PVE_HOST",
     "pve_port": "PVE_PORT",
@@ -75,10 +56,9 @@ def load_config() -> dict:
                 saved = json.load(f)
             if isinstance(saved, dict):
                 cfg.update({k: saved.get(k, cfg[k]) for k in DEFAULTS})
-        except Exception as e:  # corrupt file shouldn't brick the app
+        except Exception as e:  
             print(f"[config] could not read config.json: {e}")
 
-    # .env values fill any blanks (server-mode / dev fallback).
     for key, env_name in ENV_MAP.items():
         env_val = os.getenv(env_name)
         if env_val and not cfg.get(key):
@@ -99,12 +79,23 @@ def save_config(new_values: dict) -> dict:
     tmp = path.with_suffix(".json.tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
-    os.replace(tmp, path)  # atomic write
+    os.replace(tmp, path)  
     try:
-        os.chmod(path, 0o600)  # secrets live here; tighten perms where supported
+        os.chmod(path, 0o600) 
     except Exception:
         pass
     return cfg
+
+def reset_config() -> None:
+    """Delete all saved settings (hard disconnect / start over)."""
+    path = config_path()
+    try:
+        if path.exists():
+            os.remove(path)
+    except Exception as e:
+        print(f"[config] could not delete config.json: {e}")
+    for env_name in list(ENV_MAP.values()) + ["PVE_VERIFY_SSL"]:
+        os.environ.pop(env_name, None)
 
 
 def is_configured(cfg: dict | None = None) -> bool:

@@ -1,12 +1,3 @@
-"""
-InfraLens backend API.
-
-Runs as a standalone localhost service that the desktop shell launches as a
-bundled sidecar. It boots cleanly with no credentials: on a fresh machine the
-config/health endpoints still respond, and the UI shows the first-run settings
-screen instead of the app crashing.
-"""
-
 import os
 from pathlib import Path
 from typing import List, Dict, Any
@@ -24,7 +15,7 @@ APP_VERSION = os.getenv("INFRALENS_VERSION", "0.1.0")
 
 app = FastAPI(title="InfraLens API", version=APP_VERSION)
 
-# Localhost-only desktop usage; wildcard keeps dev (any Vite port) simple.
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,10 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# --------------------------------------------------------------------------- #
-#  Models
-# --------------------------------------------------------------------------- #
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -61,9 +48,6 @@ class ConfigUpdate(BaseModel):
     ollama_model: str | None = None
 
 
-# --------------------------------------------------------------------------- #
-#  Meta / settings / health
-# --------------------------------------------------------------------------- #
 @app.get("/api/v1/meta")
 async def meta():
     return {"name": "InfraLens", "version": APP_VERSION}
@@ -76,8 +60,6 @@ async def get_config():
 
 @app.post("/api/v1/config")
 def update_config(update: ConfigUpdate):
-    # Only overwrite secrets when a non-empty value is supplied, so the UI can
-    # leave the password/token fields blank to keep the existing secret.
     incoming = update.model_dump(exclude_none=True)
     for secret in ("pve_token_value", "ssh_password"):
         if secret in incoming and incoming[secret] == "":
@@ -110,6 +92,11 @@ def test_proxmox(p: ProxmoxTest):
 def test_ollama(p: OllamaTest):
     return manager.test_ollama(p.ollama_url, p.ollama_model)
 
+@app.post("/api/v1/config/reset")
+def reset_config():
+    config_store.reset_config()
+    manager.reload_from_config()
+    return {"reset": True}
 
 @app.get("/api/v1/health")
 def health():
@@ -121,9 +108,6 @@ def health():
     }
 
 
-# --------------------------------------------------------------------------- #
-#  Infrastructure
-# --------------------------------------------------------------------------- #
 @app.get("/api/v1/infrastructure")
 def get_infrastructure():
     if not config_store.is_configured():
@@ -165,9 +149,6 @@ def get_infrastructure():
                 "message": f"Could not read the cluster: {e}"}
 
 
-# --------------------------------------------------------------------------- #
-#  Chat / LLM
-# --------------------------------------------------------------------------- #
 @app.post("/api/v1/chat")
 def neural_link_chat(request: ChatRequest):
     cfg = config_store.load_config()
@@ -222,14 +203,10 @@ def neural_link_chat(request: ChatRequest):
         return {"reply": f"Neural Link failure: could not reach Ollama at {url} ({e})"}
 
 
-# --------------------------------------------------------------------------- #
-#  Optional: serve the built frontend (server mode). In the desktop build the
-#  Tauri webview serves the UI, so this simply does nothing if no dist exists.
-# --------------------------------------------------------------------------- #
 def _mount_frontend():
     candidates = [
-        Path(__file__).resolve().parent / "static",          # bundled next to binary
-        Path(__file__).resolve().parent.parent / "frontend" / "dist",  # dev tree
+        Path(__file__).resolve().parent / "static",          
+        Path(__file__).resolve().parent.parent / "frontend" / "dist", 
     ]
     for dist in candidates:
         if dist.is_dir():
