@@ -5,7 +5,8 @@ import axios from 'axios';
 import { API_BASE } from './api';
 import '@xyflow/react/dist/style.css';
 import ServiceNode from './components/ServiceNode';
-import { Activity, Globe, Send, Loader2, Cpu, HardDrive, Network, Clock, Sun, Moon, Layout, LayoutTemplate } from 'lucide-react';
+import Logo from './components/Logo';
+import { Activity, Globe, Send, Loader2, Cpu, HardDrive, Network, Clock, Sun, Moon, Layout, LayoutTemplate, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown'; 
 import remarkGfm from 'remark-gfm';
 
@@ -40,7 +41,7 @@ const getLayoutedElements = (nodes, edges, direction = 'LR') => {
   });
 };
 
-function FlowWithProvider() {
+function FlowWithProvider({ onOpenSettings }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -265,11 +266,16 @@ function FlowWithProvider() {
 
       <aside className="w-80 bg-white dark:bg-zinc-950/50 flex flex-col border-r border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl">
         <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center gap-3">
-          <Activity size={18} className="text-zinc-400" />
+          <Logo size={18} className="text-zinc-900 dark:text-white shrink-0" />
           <span className="font-semibold tracking-tight text-sm text-zinc-900 dark:text-zinc-100">InfraLens</span>
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="ml-auto p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
-            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button onClick={onOpenSettings} title="Settings" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
+              <Settings size={16} />
+            </button>
+            <button onClick={() => setIsDarkMode(!isDarkMode)} title="Toggle theme" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         </div>
 
         <div className="flex-grow overflow-y-auto custom-scrollbar p-5">
@@ -392,10 +398,10 @@ function FlowWithProvider() {
   );
 }
 
-export default function AppWrapper() {
+export default function AppWrapper({ onOpenSettings }) {
   return (
     <ReactFlowProvider>
-      <FlowWithProvider />
+      <FlowWithProvider onOpenSettings={onOpenSettings} />
     </ReactFlowProvider>
   );
 }

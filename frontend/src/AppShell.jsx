@@ -7,40 +7,40 @@ import App from "./App.jsx";
 import { Loader2, RefreshCw } from "lucide-react";
 
 export default function AppShell() {
-  const [phase, setPhase] = useState("loading");
+  const [phase, setPhase] = useState("loading"); 
   const [showSettings, setShowSettings] = useState(false);
   const [health, setHealth] = useState(null);
   const failures = useRef(0);
-  const startupTries = useRef(0);
 
   const probe = useCallback(async () => {
     try {
       const { data } = await axios.get(api("/api/v1/health"), { timeout: 12000 });
+      console.log("PROBE OK", data.configured, data);
       failures.current = 0;
       setHealth(data);
       setPhase(data.configured ? "ready" : "setup");
-    } catch {
+      return true;
+    } catch (e) {
+      console.log("PROBE FAIL", e.message, e);
       failures.current += 1;
-      setPhase((prev) => {
-        if (prev === "ready" && failures.current < 4) return "ready";
-        return "offline";
-      });
+      setPhase((prev) => (prev === "ready" ? "ready" : "offline"));
+      return false;
     }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const tryStart = async () => {
-      await probe();
+    let timer = null;
+
+    const tick = async () => {
       if (cancelled) return;
-      startupTries.current += 1;
+      const ok = await probe();
+      if (cancelled || ok) return;        
+      timer = setTimeout(tick, 2000);     
     };
-    tryStart();
-    const id = setInterval(() => {
-      if (failures.current > 0 && startupTries.current < 8) tryStart();
-      else clearInterval(id);
-    }, 2000);
-    return () => { cancelled = true; clearInterval(id); };
+
+    tick();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [probe]);
 
   useEffect(() => {
@@ -51,8 +51,6 @@ export default function AppShell() {
 
   const retry = useCallback(() => {
     failures.current = 0;
-    startupTries.current = 0;
-    setPhase("loading");
     probe();
   }, [probe]);
 
@@ -86,6 +84,7 @@ export default function AppShell() {
     return <Onboarding onDone={probe} />;
   }
 
+  // ready
   return (
     <div className="relative">
       <StatusBanner health={health} onFix={() => setShowSettings(true)} />
