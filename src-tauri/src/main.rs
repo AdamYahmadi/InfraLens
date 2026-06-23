@@ -44,12 +44,13 @@ fn main() {
             match event {
                 RunEvent::Exit => {
                     let state: State<Backend> = app_handle.state();
-                    if let Some(child) = state.0.lock().unwrap().take() {
+                    let backend_process = state.0.lock().unwrap().take();
+                    
+                    if let Some(child) = backend_process {
                         let _ = child.kill();
                         println!("[infralens] Backend process terminated successfully.");
                     }
                 }
-                
                 RunEvent::WindowEvent {
                     event: WindowEvent::Destroyed,
                     ..
@@ -58,7 +59,6 @@ fn main() {
                         app_handle.exit(0);
                     }
                 }
-                
                 _ => {}
             }
         });
