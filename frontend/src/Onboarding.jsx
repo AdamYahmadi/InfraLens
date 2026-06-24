@@ -2,14 +2,15 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { api } from "./api";
 import {
-  Activity, Server, Cpu, ShieldCheck,
+  Server, Cpu, ShieldCheck,
   ArrowRight, ArrowLeft, Check, Loader2, AlertTriangle,
 } from "lucide-react";
+import Logo from "./components/Logo";
 
 const STAGES = ["Proxmox", "SSH probe", "Neural link"];
 
 export default function Onboarding({ onDone }) {
-  const [step, setStep] = useState(0); // 0 welcome 1 proxmox 2 ssh 3 ollama 4 done
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     pve_host: "", pve_port: "8006", pve_user: "", pve_token_name: "",
     pve_token_value: "", pve_verify_ssl: false,
@@ -53,7 +54,7 @@ export default function Onboarding({ onDone }) {
       setPveState(data.ok ? "ok" : "fail"); setPveMsg(data.detail);
       if (data.ok) setTimeout(() => setStep(2), 400);
     } catch {
-      setPveState("fail"); setPveMsg("The InfraLens backend isn’t responding.");
+      setPveState("fail"); setPveMsg("The InfraLens backend isn't responding.");
     } finally { setBusy(false); }
   }, [form]);
 
@@ -65,7 +66,7 @@ export default function Onboarding({ onDone }) {
       setOllState(data.ok ? (data.model_ready ? "ok" : "warn") : "fail");
       setOllMsg(data.detail);
     } catch {
-      setOllState("fail"); setOllMsg("The InfraLens backend isn’t responding.");
+      setOllState("fail"); setOllMsg("The InfraLens backend isn't responding.");
     } finally { setBusy(false); }
   }, [form]);
 
@@ -75,7 +76,7 @@ export default function Onboarding({ onDone }) {
       await axios.post(api("/api/v1/config"), form);
       setStep(4);
     } catch {
-      setOllState("fail"); setOllMsg("Couldn’t save. Is the backend running?");
+      setOllState("fail"); setOllMsg("Couldn't save. Is the backend running?");
     } finally { setBusy(false); }
   }, [form]);
 
@@ -84,9 +85,9 @@ export default function Onboarding({ onDone }) {
       {step === 0 && <Welcome onBegin={() => setStep(1)} />}
 
       {step >= 1 && step <= 3 && (
-        <div className="w-full max-w-lg">
+        <div className="w-full max-w-xl">
           <Stepper active={step} />
-          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl p-7">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl p-9">
             {step === 1 && (
               <Stage label="Step 1 — Proxmox" title="Connect your cluster"
                 blurb="InfraLens reads your nodes and containers through the Proxmox API. Create a token under Datacenter → Permissions → API Tokens.">
@@ -106,10 +107,9 @@ export default function Onboarding({ onDone }) {
                   secondary={pveState === "fail" ? { label: "Continue anyway", onClick: () => setStep(2) } : null} />
               </Stage>
             )}
-
             {step === 2 && (
               <Stage label="Step 2 — SSH probe" title="Detect services (optional)"
-                blurb="With SSH to the Proxmox host, InfraLens can look inside LXC containers and detect what’s running. Skip if you’d rather not.">
+                blurb="With SSH to the Proxmox host, InfraLens can look inside LXC containers and detect what's running. Skip if you'd rather not.">
                 <Row>
                   <Field label="SSH user" value={form.ssh_user} onChange={set("ssh_user")} />
                   <Field label="SSH password" type="password" value={form.ssh_password} onChange={set("ssh_password")} />
@@ -119,7 +119,6 @@ export default function Onboarding({ onDone }) {
                   secondary={{ label: "Skip", onClick: () => setStep(3) }} />
               </Stage>
             )}
-
             {step === 3 && (
               <Stage label="Step 3 — Neural link" title="Connect local AI"
                 blurb="InfraLens answers questions about your lab using a local Ollama model — nothing leaves your network.">
@@ -154,22 +153,23 @@ export default function Onboarding({ onDone }) {
 
 function Welcome({ onBegin }) {
   return (
-    <div className="w-full max-w-md text-center flex flex-col items-center">
-      <div className="w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 flex items-center justify-center mb-6">
-        <Activity size={22} className="text-zinc-900 dark:text-white" />
+    <div className="w-full max-w-lg text-center flex flex-col items-center">
+      <div className="w-20 h-20 rounded-2xl bg-zinc-900 dark:bg-zinc-900 border border-zinc-800 dark:border-white/10 flex items-center justify-center mb-8 shadow-xl">
+        <Logo size={42} className="text-white" />
       </div>
-      <h1 className="text-2xl font-semibold tracking-tight mb-3">Welcome to InfraLens</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8 max-w-sm">
-        A live map of your Proxmox lab — real-time telemetry, service discovery,
-        and an on-prem AI that answers in plain language.
+      <h1 className="text-4xl font-semibold tracking-tight mb-4">Welcome to InfraLens</h1>
+      <p className="text-base text-zinc-500 dark:text-zinc-400 leading-relaxed mb-10 max-w-md">
+        Your Proxmox cluster, visualised in real time. Monitor every node,
+        container, and service — and query your infrastructure in plain language
+        using a local AI that never leaves your network.
       </p>
-      <div className="w-full text-left space-y-3 mb-8">
+      <div className="w-full text-left space-y-4 mb-10">
         <Prereq icon={Server}>A Proxmox host with an API token</Prereq>
         <Prereq icon={Cpu}>Ollama running on your network</Prereq>
         <Prereq icon={ShieldCheck}>Everything stays on your LAN</Prereq>
       </div>
-      <button onClick={onBegin} className={btnPrimary + " w-full justify-center"}>
-        Get started <ArrowRight size={16} />
+      <button onClick={onBegin} className={btnPrimary + " w-full justify-center py-3 text-base"}>
+        Get started <ArrowRight size={18} />
       </button>
     </div>
   );
@@ -177,17 +177,17 @@ function Welcome({ onBegin }) {
 
 function Done({ onLaunch, host }) {
   return (
-    <div className="w-full max-w-md text-center flex flex-col items-center">
-      <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
-        <Check size={26} className="text-emerald-500" />
+    <div className="w-full max-w-lg text-center flex flex-col items-center">
+      <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-8">
+        <Check size={36} className="text-emerald-500" />
       </div>
-      <h1 className="text-2xl font-semibold tracking-tight mb-3">You’re all set</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8 max-w-sm">
+      <h1 className="text-4xl font-semibold tracking-tight mb-4">You're all set</h1>
+      <p className="text-base text-zinc-500 dark:text-zinc-400 leading-relaxed mb-10 max-w-md">
         InfraLens is configured{host ? <> and connected to <span className="font-mono text-zinc-700 dark:text-zinc-300">{host}</span></> : ""}.
-        You can change anything later from settings.
+        You can update any setting later from the gear icon in the sidebar.
       </p>
-      <button onClick={onLaunch} className={btnPrimary + " w-full justify-center"}>
-        Launch InfraLens <ArrowRight size={16} />
+      <button onClick={onLaunch} className={btnPrimary + " w-full justify-center py-3 text-base"}>
+        Launch InfraLens <ArrowRight size={18} />
       </button>
     </div>
   );
@@ -195,20 +195,20 @@ function Done({ onLaunch, host }) {
 
 function Stepper({ active }) {
   return (
-    <div className="flex items-center gap-3 mb-5 px-1">
+    <div className="flex items-center gap-3 mb-6 px-1">
       {STAGES.map((s, i) => {
         const n = i + 1;
         const done = n < active, current = n === active;
         return (
           <div key={s} className="flex items-center gap-3 flex-1">
             <div className="flex items-center gap-2 min-w-0">
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
                 done ? "bg-emerald-500 text-white"
                 : current ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
                 : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>
-                {done ? <Check size={11} /> : n}
+                {done ? <Check size={12} /> : n}
               </span>
-              <span className={`text-[11px] truncate ${current ? "text-zinc-900 dark:text-zinc-100 font-medium" : "text-zinc-400"}`}>{s}</span>
+              <span className={`text-xs truncate ${current ? "text-zinc-900 dark:text-zinc-100 font-medium" : "text-zinc-400"}`}>{s}</span>
             </div>
             {i < STAGES.length - 1 && <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-zinc-200 dark:bg-white/10"}`} />}
           </div>
@@ -222,8 +222,8 @@ function Stage({ label, title, blurb, children }) {
   return (
     <div className="flex flex-col">
       <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-2">{label}</span>
-      <h2 className="text-lg font-semibold tracking-tight mb-1.5">{title}</h2>
-      <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">{blurb}</p>
+      <h2 className="text-xl font-semibold tracking-tight mb-2">{title}</h2>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-7">{blurb}</p>
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -243,7 +243,7 @@ function Status({ state, msg }) {
 
 function Nav({ onBack, primary, secondary }) {
   return (
-    <div className="flex items-center justify-between pt-3">
+    <div className="flex items-center justify-between pt-4">
       {onBack
         ? <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><ArrowLeft size={15} /> Back</button>
         : <span />}
@@ -260,8 +260,8 @@ function Nav({ onBack, primary, secondary }) {
 
 function Prereq({ icon: Icon, children }) {
   return (
-    <div className="flex items-center gap-3 text-[13px] text-zinc-600 dark:text-zinc-300">
-      <Icon size={15} className="text-zinc-400 shrink-0" /> {children}
+    <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-300">
+      <Icon size={16} className="text-zinc-400 shrink-0" /> {children}
     </div>
   );
 }
@@ -272,10 +272,8 @@ function Field({ label, value, onChange, placeholder, type = "text", grow, w }) 
   return (
     <label className={`flex flex-col gap-1.5 ${grow ? "flex-1" : ""}`} style={w ? { flex: `0 0 ${w}` } : undefined}>
       <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">{label}</span>
-      <input
-        type={type} value={value} onChange={onChange} placeholder={placeholder}
-        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
-      />
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors placeholder:text-zinc-400 dark:placeholder:text-zinc-600" />
     </label>
   );
 }
