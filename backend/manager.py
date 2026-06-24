@@ -126,7 +126,20 @@ def test_proxmox(params: dict) -> dict:
         ver = version.get("version", "") if isinstance(version, dict) else ""
         return {"ok": True, "detail": f"Connected to Proxmox VE {ver}".strip() + "."}
     except Exception as e:
-        return {"ok": False, "detail": f"Connection failed: {e}"}
+        msg = str(e)
+        if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in msg or "SSL" in msg:
+            detail = (
+                "SSL certificate verification failed. "
+                "Your Proxmox host uses a self-signed certificate — "
+                "uncheck 'Verify SSL certificate' to connect."
+            )
+        elif "Connection refused" in msg or "No route to host" in msg or "timed out" in msg.lower():
+            detail = "Couldn't reach that host. Check the IP address, port, and that Proxmox is running."
+        elif "401" in msg or "403" in msg or "Unauthorized" in msg:
+            detail = "Authentication failed. Check your API user, token name, and token value."
+        else:
+            detail = f"Connection failed: {e}"
+        return {"ok": False, "detail": detail}
     finally:
         if old_port is None:
             os.environ.pop("PVE_PORT", None)
