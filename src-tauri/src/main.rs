@@ -27,7 +27,6 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(Backend(Mutex::new(None)))
         .setup(|app| {
-            // Keep the window hidden while the backend boots.
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.hide();
             }
@@ -57,7 +56,6 @@ fn main() {
                 Err(e) => eprintln!("[infralens] could not resolve backend sidecar: {e}"),
             }
 
-            // Wait for the backend in a background thread, then reveal the window.
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
                 wait_for_backend(8756, 30);

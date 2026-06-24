@@ -9,7 +9,7 @@ import {
 const STAGES = ["Proxmox", "SSH probe", "Neural link"];
 
 export default function Onboarding({ onDone }) {
-  const [step, setStep] = useState(0); 
+  const [step, setStep] = useState(0); // 0 welcome 1 proxmox 2 ssh 3 ollama 4 done
   const [form, setForm] = useState({
     pve_host: "", pve_port: "8006", pve_user: "", pve_token_name: "",
     pve_token_value: "", pve_verify_ssl: false,

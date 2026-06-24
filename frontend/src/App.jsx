@@ -52,13 +52,7 @@ function FlowWithProvider({ onOpenSettings }) {
   
   const { fitView } = useReactFlow(); 
   
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('infralens-theme');
-      if (saved) return saved === 'dark';
-    } catch (_) {}
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const isDarkModeRef = useRef(isDarkMode);
 
   const chatInputRef = useRef(null);
@@ -82,10 +76,8 @@ function FlowWithProvider({ onOpenSettings }) {
     isDarkModeRef.current = isDarkMode;
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('infralens-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('infralens-theme', 'light');
     }
   }, [isDarkMode]);
 
