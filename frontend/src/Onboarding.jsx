@@ -104,7 +104,7 @@ export default function Onboarding({ onDone }) {
                 <Status state={pveState} msg={pveMsg} />
                 <Nav onBack={() => setStep(0)}
                   primary={{ label: "Test & continue", onClick: testProxmox, busy }}
-                  secondary={pveState === "fail" ? { label: "Continue anyway", onClick: () => setStep(2) } : null} />
+                  secondary={null} />
               </Stage>
             )}
             {step === 2 && (
