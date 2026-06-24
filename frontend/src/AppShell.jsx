@@ -6,7 +6,7 @@ import { API_BASE } from './api';
 import '@xyflow/react/dist/style.css';
 import ServiceNode from './components/ServiceNode';
 import Logo from './components/Logo';
-import { Activity, Globe, Send, Loader2, Cpu, HardDrive, Network, Clock, Sun, Moon, Layout, LayoutTemplate, Settings, ChevronRight, MessageSquare } from 'lucide-react';
+import { Activity, Globe, Send, Loader2, Cpu, HardDrive, Network, Clock, Sun, Moon, Layout, LayoutTemplate, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown'; 
 import remarkGfm from 'remark-gfm';
 
@@ -50,9 +50,6 @@ function FlowWithProvider({ onOpenSettings }) {
   const [loadProgress, setLoadProgress] = useState(0); 
   const [loadingStep, setLoadingStep] = useState(0); 
   
-  // NEW: State to control the AI chat sidebar
-  const [isChatOpen, setIsChatOpen] = useState(true);
-
   const { fitView } = useReactFlow(); 
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -181,16 +178,14 @@ function FlowWithProvider({ onOpenSettings }) {
   }, [fetchInfra]); 
 
   useEffect(() => {
-    if (isChatOpen) {
-      chatInputRef.current?.focus();
-    }
-  }, [isChatOpen]);
+    chatInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [chatHistory, isThinking, isChatOpen]);
+  }, [chatHistory, isThinking]);
 
   const handleReorder = () => {
     if (nodesRef.current.length === 0) return;
@@ -277,35 +272,34 @@ function FlowWithProvider({ onOpenSettings }) {
         </div>
       )}
 
-      {/* LEFT SIDEBAR: Widened to w-96 (384px) */}
-      <aside className="w-96 bg-white dark:bg-zinc-950/50 flex flex-col border-r border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl">
+      <aside className="w-80 bg-white dark:bg-zinc-950/50 flex flex-col border-r border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl">
         <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center gap-3">
           <Logo size={18} className="text-zinc-900 dark:text-white shrink-0" />
           <span className="font-semibold tracking-tight text-sm text-zinc-900 dark:text-zinc-100">InfraLens</span>
           <div className="ml-auto flex items-center gap-1">
-            <button onClick={onOpenSettings} title="Settings" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 transition-colors">
+            <button onClick={onOpenSettings} title="Settings" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
               <Settings size={16} />
             </button>
-            <button onClick={() => setIsDarkMode(!isDarkMode)} title="Toggle theme" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 transition-colors">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} title="Toggle theme" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500">
               {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-grow overflow-y-auto custom-scrollbar p-5">
           {selectedNode ? (
             <div className="animate-in fade-in slide-in-from-left-2 duration-300">
               <div className="mb-6">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{selectedNode.data.label}</h2>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${selectedNode.data.status === 'running' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{selectedNode.data.label}</h2>
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border ${selectedNode.data.status === 'running' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'}`}>
                     {selectedNode.data.status}
                   </span>
                 </div>
-                <p className="text-[11px] font-mono text-zinc-500 uppercase tracking-tight">Node ID: {selectedNode.id}</p>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-tight">Node ID: {selectedNode.id}</p>
               </div>
 
-              <div className="space-y-1.5 mb-8">
+              <div className="space-y-1 mb-6">
                 <MetricRow icon={Cpu} label="CPU" value={selectedNode.data.cpu || "N/A"} progress={selectedNode.data.cpu} accent="bg-zinc-800 dark:bg-zinc-200" />
                 <MetricRow icon={HardDrive} label="RAM" value={selectedNode.data.ram || "N/A"} progress={getPercentage(selectedNode.data.ram)} accent="bg-zinc-500" />
                 <MetricRow icon={HardDrive} label="Disk" value={selectedNode.data.disk || "N/A"} progress={getPercentage(selectedNode.data.disk)} accent="bg-zinc-600" />
@@ -315,11 +309,11 @@ function FlowWithProvider({ onOpenSettings }) {
 
               {selectedNode.data.sub_services?.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase tracking-widest text-zinc-400 font-bold mb-3">Active Services</h3>
-                  <div className="flex flex-wrap gap-2.5">
+                  <h3 className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3">Active Services</h3>
+                  <div className="flex flex-wrap gap-2">
                     {selectedNode.data.sub_services.map((svc, idx) => (
                       <div key={idx} className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/5 px-3 py-1.5 rounded-lg text-xs font-mono">
-                        <LayoutTemplate size={14} className="text-zinc-400" />
+                        <LayoutTemplate size={12} className="text-zinc-400" />
                         {svc}
                       </div>
                     ))}
@@ -329,25 +323,14 @@ function FlowWithProvider({ onOpenSettings }) {
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-               <Globe size={40} className="mb-5" />
-               <p className="text-sm font-medium">Select a node to inspect<br/>live telemetry</p>
+               <Globe size={32} className="mb-4" />
+               <p className="text-xs font-medium">Select a node to inspect<br/>live telemetry</p>
             </div>
           )}
         </div>
       </aside>
 
       <main className="relative flex-grow h-full bg-zinc-50 dark:bg-[#0d0d0d]">
-        {/* Toggle Button when Chat is closed */}
-        {!isChatOpen && (
-          <button 
-            onClick={() => setIsChatOpen(true)}
-            className="absolute top-5 right-5 z-50 px-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2.5 text-sm font-medium transition-all"
-          >
-            <MessageSquare size={18} />
-            <span>Open AI</span>
-          </button>
-        )}
-
         <ReactFlow
           colorMode={isDarkMode ? "dark" : "light"}
           nodes={nodes}
@@ -367,71 +350,55 @@ function FlowWithProvider({ onOpenSettings }) {
         </ReactFlow>
       </main>
 
-      {/* RIGHT SIDEBAR: IDE-style collapsible, widened to 550px */}
-      <aside 
-        className={`bg-white dark:bg-zinc-950/50 flex flex-col shrink-0 z-20 backdrop-blur-xl transition-all duration-300 ease-in-out overflow-hidden border-zinc-200 dark:border-white/5 ${
-          isChatOpen ? 'w-[550px] translate-x-0 border-l' : 'w-0 translate-x-full border-none opacity-0'
-        }`}
-      >
-        <div className="w-[550px] flex flex-col h-full">
-          <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center justify-between">
-             <span className="font-semibold text-xs uppercase tracking-widest text-zinc-500">Ai Chatbot</span>
-             <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-zinc-400 animate-pulse' : 'bg-emerald-500'}`}></div>
-                 <span className="text-[10px] font-bold text-zinc-400 uppercase">{isThinking ? 'Thinking' : 'Online'}</span>
-               </div>
-               <button 
-                 onClick={() => setIsChatOpen(false)} 
-                 className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-                 title="Close Panel"
-               >
-                 <ChevronRight size={18} />
-               </button>
-             </div>
-          </div>
-          
-          <div ref={chatScrollRef} className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
-            {chatHistory.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start w-full'}`}>
+      <aside className="w-[500px] bg-white dark:bg-zinc-950/50 flex flex-col border-l border-zinc-200 dark:border-white/5 shrink-0 z-20 backdrop-blur-xl transition-all duration-300">
+        <div className="p-5 border-b border-zinc-200 dark:border-white/5 flex items-center justify-between">
+           <span className="font-semibold text-xs uppercase tracking-widest text-zinc-500">Ai Chatbot</span>
+           <div className="flex items-center gap-2">
+             <div className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-zinc-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+             <span className="text-[10px] font-bold text-zinc-400 uppercase">{isThinking ? 'Thinking' : 'Online'}</span>
+           </div>
+        </div>
+        
+        <div ref={chatScrollRef} className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start w-full'}`}>
+              
+              <div className={
+                msg.role === 'user' 
+                ? 'max-w-[80%] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm' 
+                : 'w-full text-zinc-700 dark:text-zinc-300' 
+              }>
                 
                 <div className={
-                  msg.role === 'user' 
-                  ? 'max-w-[80%] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm' 
-                  : 'w-full text-zinc-700 dark:text-zinc-300' 
+                  msg.role === 'user' ? '' : 
+                  "text-sm leading-relaxed space-y-4 [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ul>li]:mb-1.5 [&>table]:block [&>table]:w-full [&>table]:overflow-x-auto [&>table]:whitespace-nowrap [&>table]:text-left [&>table]:border-collapse [&_th]:px-4 [&_th]:py-3 [&_th]:border-b [&_th]:border-zinc-300 dark:[&_th]:border-zinc-600 [&_th]:bg-zinc-100 dark:[&_th]:bg-zinc-800/50 [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-zinc-200 dark:[&_td]:border-zinc-800 [&_td]:align-middle [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&>h3]:text-lg [&>h3]:font-bold [&>h3]:text-zinc-900 dark:[&>h3]:text-zinc-100 [&>h3]:mt-6 [&>h3]:mb-3"
                 }>
-                  
-                  <div className={
-                    msg.role === 'user' ? '' : 
-                    "text-sm leading-relaxed space-y-4 [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ul>li]:mb-1.5 [&>table]:block [&>table]:w-full [&>table]:overflow-x-auto [&>table]:whitespace-nowrap [&>table]:text-left [&>table]:border-collapse [&_th]:px-4 [&_th]:py-3 [&_th]:border-b [&_th]:border-zinc-300 dark:[&_th]:border-zinc-600 [&_th]:bg-zinc-100 dark:[&_th]:bg-zinc-800/50 [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:border-b [&_td]:border-zinc-200 dark:[&_td]:border-zinc-800 [&_td]:align-middle [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&>h3]:text-lg [&>h3]:font-bold [&>h3]:text-zinc-900 dark:[&>h3]:text-zinc-100 [&>h3]:mt-6 [&>h3]:mb-3"
-                  }>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                  </div>
-
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 </div>
-              </div>
-            ))}
-            {isThinking && (
-              <div className="flex justify-start text-zinc-400 text-[10px] uppercase font-bold tracking-widest mt-4">
-                <Loader2 size={12} className="animate-spin mr-2" /> Processing...
-              </div>
-            )}
-          </div>
 
-          <div className="p-5 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-white/5">
-            <form onSubmit={handleChatSubmit} className="relative flex items-center">
-              <input 
-                ref={chatInputRef}
-                value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Query infrastructure..." 
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm outline-none focus:border-zinc-400 transition-colors" 
-                disabled={isThinking}
-              />
-              <button type="submit" disabled={isThinking || !chatInput.trim()} className="absolute right-2 p-1.5 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors">
-                <Send size={18} />
-              </button>
-            </form>
-          </div>
+              </div>
+            </div>
+          ))}
+          {isThinking && (
+            <div className="flex justify-start text-zinc-400 text-[10px] uppercase font-bold tracking-widest mt-4">
+              <Loader2 size={12} className="animate-spin mr-2" /> Processing...
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 bg-zinc-50 dark:bg-zinc-950 border-t border-zinc-200 dark:border-white/5">
+          <form onSubmit={handleChatSubmit} className="relative flex items-center">
+            <input 
+              ref={chatInputRef}
+              value={chatInput} onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Query infrastructure..." 
+              className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm outline-none focus:border-zinc-400 transition-colors" 
+              disabled={isThinking}
+            />
+            <button type="submit" disabled={isThinking || !chatInput.trim()} className="absolute right-2 p-1.5 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors">
+              <Send size={16} />
+            </button>
+          </form>
         </div>
       </aside>
 
