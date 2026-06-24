@@ -34,6 +34,7 @@ def reload_from_config() -> None:
     _engine_error = None
 
     if not config_store.is_configured(cfg):
+        os.environ.pop("PVE_VERIFY_SSL", None)
         return 
 
     try:

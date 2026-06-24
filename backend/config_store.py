@@ -63,7 +63,7 @@ def load_config() -> dict:
         env_val = os.getenv(env_name)
         if env_val and not cfg.get(key):
             cfg[key] = env_val
-    if os.getenv("PVE_VERIFY_SSL") and not cfg.get("pve_verify_ssl"):
+    if "pve_verify_ssl" not in cfg or cfg["pve_verify_ssl"] is None:
         cfg["pve_verify_ssl"] = os.getenv("PVE_VERIFY_SSL", "").lower() == "true"
 
     return cfg
