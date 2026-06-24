@@ -1,22 +1,27 @@
-"""
-Runtime manager for the Proxmox engine, SSH probe and Ollama link.
-
-Everything here is lazy and fault-tolerant: the heavy modules
-(proxmoxer / paramiko) are imported only when the user has actually
-configured credentials, so the app boots cleanly on a fresh machine
-with no settings and nothing crashes. Health checks let the UI show a
-clear "can't reach X" message instead of a stack trace.
-"""
-
 import os
 import requests
 
 import config_store
 
-# Module-level singletons, rebuilt whenever settings change.
 _engine = None
 _probe = None
 _engine_error = None
+
+
+def _friendly_error(e: Exception) -> str:
+    """Translate raw Python/SSL exceptions into readable user-facing messages."""
+    msg = str(e)
+    if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in msg or "SSL" in msg:
+        return (
+            "SSL certificate verification failed. "
+            "Your Proxmox host uses a self-signed certificate — "
+            "disable 'Verify SSL certificate' in Settings."
+        )
+    if "Connection refused" in msg or "No route to host" in msg or "timed out" in msg.lower():
+        return "Couldn't reach Proxmox. Check the IP address, port, and Local Network permission."
+    if "401" in msg or "403" in msg or "Unauthorized" in msg:
+        return "Authentication failed. Check your API user, token name, and token value."
+    return f"Connection failed: {e}"
 
 
 def reload_from_config() -> None:
@@ -29,9 +34,8 @@ def reload_from_config() -> None:
     _engine_error = None
 
     if not config_store.is_configured(cfg):
-        return  # stay un-configured; UI will show the settings screen
+        return 
 
-    # Imported lazily so a fresh install without these wheels still boots.
     try:
         from proxmox_engine import ProxmoxEngine
         _engine = ProxmoxEngine(
@@ -43,12 +47,12 @@ def reload_from_config() -> None:
         )
     except Exception as e:
         _engine = None
-        _engine_error = str(e)
+        _engine_error = _friendly_error(e)
         print(f"[manager] engine init failed: {e}")
 
     try:
         from service_probe import ServiceProbe
-        _probe = ServiceProbe()  # reads creds from env we just applied
+        _probe = ServiceProbe()  
     except Exception as e:
         _probe = None
         print(f"[manager] probe init failed: {e}")
@@ -72,12 +76,10 @@ def check_proxmox() -> dict:
         return {"ok": False, "configured": True,
                 "detail": _engine_error or "Engine not initialised."}
     try:
-        # A cheap call that exercises auth without pulling the whole cluster.
         _engine.pve.version.get()
         return {"ok": True, "configured": True, "detail": "Connected."}
     except Exception as e:
-        return {"ok": False, "configured": True,
-                "detail": f"Could not reach Proxmox: {e}"}
+        return {"ok": False, "configured": True, "detail": _friendly_error(e)}
 
 
 def check_ollama() -> dict:
@@ -126,20 +128,7 @@ def test_proxmox(params: dict) -> dict:
         ver = version.get("version", "") if isinstance(version, dict) else ""
         return {"ok": True, "detail": f"Connected to Proxmox VE {ver}".strip() + "."}
     except Exception as e:
-        msg = str(e)
-        if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in msg or "SSL" in msg:
-            detail = (
-                "SSL certificate verification failed. "
-                "Your Proxmox host uses a self-signed certificate — "
-                "uncheck 'Verify SSL certificate' to connect."
-            )
-        elif "Connection refused" in msg or "No route to host" in msg or "timed out" in msg.lower():
-            detail = "Couldn't reach that host. Check the IP address, port, and that Proxmox is running."
-        elif "401" in msg or "403" in msg or "Unauthorized" in msg:
-            detail = "Authentication failed. Check your API user, token name, and token value."
-        else:
-            detail = f"Connection failed: {e}"
-        return {"ok": False, "detail": detail}
+        return {"ok": False, "detail": _friendly_error(e)}
     finally:
         if old_port is None:
             os.environ.pop("PVE_PORT", None)
@@ -162,5 +151,4 @@ def test_ollama(url: str | None, model: str | None) -> dict:
                 "models": [], "model_ready": False}
 
 
-# Build once at import so the first request has state ready.
 reload_from_config()

@@ -5,6 +5,7 @@ import Settings from "./Settings";
 import Onboarding from "./Onboarding";
 import App from "./App.jsx";
 import { Loader2, RefreshCw } from "lucide-react";
+import Logo from "./components/Logo";
 
 export default function AppShell() {
   const [phase, setPhase] = useState("loading");
@@ -53,7 +54,10 @@ export default function AppShell() {
   if (phase === "loading") {
     return (
       <Centered>
-        <Loader2 className="animate-spin mr-2" /> Starting InfraLens…
+        <div className="flex flex-col items-center gap-3 opacity-40">
+          <Logo size={28} className="text-zinc-900 dark:text-white" />
+          <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">InfraLens</span>
+        </div>
       </Centered>
     );
   }
