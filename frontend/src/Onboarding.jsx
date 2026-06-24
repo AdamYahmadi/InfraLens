@@ -183,7 +183,7 @@ function Done({ onLaunch, host }) {
       </div>
       <h1 className="text-4xl font-semibold tracking-tight mb-4">You're all set</h1>
       <p className="text-base text-zinc-500 dark:text-zinc-400 leading-relaxed mb-10 max-w-md">
-        InfraLens is configured{host ? <> and connected to <span className="font-mono text-zinc-700 dark:text-zinc-300">{host}</span></> : ""}.
+        Your cluster is connected and InfraLens is ready to go.
         You can update any setting later from the gear icon in the sidebar.
       </p>
       <button onClick={onLaunch} className={btnPrimary + " w-full justify-center py-3 text-base"}>
