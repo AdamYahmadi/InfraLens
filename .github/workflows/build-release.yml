@@ -1,7 +1,5 @@
 name: Build & Release
 
-# Push a version tag (e.g. v0.1.0) to build installers and publish a release.
-# You can also run it manually from the Actions tab.
 on:
   push:
     tags:
@@ -20,10 +18,10 @@ jobs:
           - os: ubuntu-22.04
             rust_target: x86_64-unknown-linux-gnu
             tauri_args: ""
-          - os: macos-13          # Intel Macs
+          - os: macos-13          
             rust_target: x86_64-apple-darwin
             tauri_args: "--target x86_64-apple-darwin"
-          - os: macos-latest      # Apple Silicon
+          - os: macos-latest      
             rust_target: aarch64-apple-darwin
             tauri_args: "--target aarch64-apple-darwin"
 
@@ -32,7 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ---- Build the Python backend into a standalone binary ---------------
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -51,7 +48,6 @@ jobs:
           cp "backend/dist/infralens-backend" "src-tauri/binaries/infralens-backend-${{ matrix.rust_target }}"
           chmod +x "src-tauri/binaries/infralens-backend-${{ matrix.rust_target }}"
 
-      # ---- Toolchains -------------------------------------------------------
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -73,7 +69,6 @@ jobs:
             libayatana-appindicator3-dev patchelf file libxdo-dev \
             build-essential curl wget libssl-dev
 
-      # ---- Frontend deps + app icons ---------------------------------------
       - name: Install JS dependencies
         run: |
           npm install
@@ -82,7 +77,6 @@ jobs:
       - name: Generate app icons
         run: npx tauri icon ./appicon.png
 
-      # ---- Build, sign, and publish ----------------------------------------
       - name: Build & release
         uses: tauri-apps/tauri-action@v0
         env:
