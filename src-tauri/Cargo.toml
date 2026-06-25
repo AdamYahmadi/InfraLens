@@ -3,7 +3,7 @@ name = "infralens"
 version = "0.1.0"
 description = "Real-time topology, monitoring and LLM diagnostics for Proxmox homelabs"
 authors = ["InfraLens"]
-edition = "2021"
+edition = "2026"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
