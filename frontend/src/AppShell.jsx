@@ -103,7 +103,6 @@ function StatusBanner({ health, onFix }) {
   if (!health) return null;
   const problems = [];
   if (!health.proxmox?.ok) problems.push(health.proxmox?.detail || "Proxmox unreachable");
-  if (!health.ollama?.ok) problems.push(health.ollama?.detail || "Ollama unreachable");
   if (problems.length === 0) return null;
   return (
     <div className="sticky top-0 z-40 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-white/5 text-zinc-600 dark:text-zinc-300 text-[13px] px-4 py-2 flex items-center gap-3">
