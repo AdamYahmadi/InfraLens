@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-APP_VERSION = os.getenv("INFRALENS_VERSION", "0.1.0")
+APP_VERSION = os.getenv("INFRALENS_VERSION", "0.2.0")
 
 app = FastAPI(title="InfraLens API", version=APP_VERSION)
 
