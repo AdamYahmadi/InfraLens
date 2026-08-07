@@ -6,7 +6,7 @@ import { API_BASE } from './api';
 import '@xyflow/react/dist/style.css';
 import ServiceNode from './components/ServiceNode';
 import Logo from './components/Logo';
-import { Send, Loader2, Network, Clock, Sun, Moon, Layout, LayoutTemplate, Settings, PanelRightClose, Server, Container, Cpu, MessageCircleDashed} from 'lucide-react';
+import { Send, Loader2, Network, Clock, Sun, Moon, Layout, LayoutTemplate, Settings, PanelRightClose, Server, Container, Cpu, MessageCircleDashed, Play, Power, RotateCw, Square, ChevronDown, Activity, ArrowDown, ArrowUp, CheckCircle2, XCircle, Circle,} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -51,6 +51,15 @@ const pctToNumber = (usageString) => {
 const isNodeOnline = (n) => {
   const s = (n?.data?.status || '').toLowerCase();
   return s === 'running' || s === 'online';
+};
+
+const relTime = (epochSec) => {
+  if (!epochSec) return '';
+  const diff = Math.floor(Date.now() / 1000) - epochSec;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 };
 
 const nodeKind = (n) => {
@@ -142,13 +151,161 @@ function Meter({ label, value, sub }) {
   );
 }
 
+function Sparkline({ data = [], color = 'currentColor', height = 28 }) {
+  const pts = (data || []).filter(v => v !== null && v !== undefined && !isNaN(v));
+  if (pts.length < 2) {
+    return <div className="h-7 flex items-center text-[10px] text-zinc-400 dark:text-zinc-600">No history</div>;
+  }
+  const w = 200, h = height, pad = 2;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = max - min || 1;
+  const step = (w - pad * 2) / (pts.length - 1);
+  const path = pts.map((v, i) => {
+    const x = pad + i * step;
+    const y = pad + (h - pad * 2) * (1 - (v - min) / range);
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const areaPath = `${path} L${(pad + (pts.length - 1) * step).toFixed(1)},${h - pad} L${pad},${h - pad} Z`;
+  const last = pts[pts.length - 1];
+  const avg = pts.reduce((a, b) => a + b, 0) / pts.length;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">avg {Math.round(avg)}%</span>
+        <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-200">{Math.round(last)}%</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
+        <path d={areaPath} fill={color} opacity="0.08" />
+        <path d={path} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke"
+          strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+function PowerControls({ node, apiBase, onFired, pendingInfo, onSetPending, onClearPending }) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  const [error, setError] = useState(null);
+
+  const s = (node?.data?.status || '').toLowerCase();
+  const running = s === 'running' || s === 'online';
+
+  const pending = pendingInfo?.action || null;
+  const pendingSince = pendingInfo?.since || 0;
+
+  useEffect(() => {
+    if (!pending) return;
+    const elapsed = Date.now() - pendingSince;
+
+    let settled = false;
+    if (pending === 'start') settled = running;
+    else if (pending === 'stop' || pending === 'shutdown') settled = !running;
+    else if (pending === 'reboot') settled = elapsed > 20000;
+
+    const timedOut = elapsed > 60000;
+
+    if (settled || timedOut) {
+      onClearPending();
+      return;
+    }
+
+    const t = setTimeout(() => setError(prev => prev), 3000);
+    return () => clearTimeout(t);
+  }, [pending, running, pendingSince, onClearPending]);
+
+  const fire = async (action) => {
+    setOpen(false);
+    setConfirming(null);
+    setError(null);
+    onSetPending(action);
+    try {
+      await axios.post(`${apiBase}/api/v1/nodes/${node.id}/action`, { action });
+      if (onFired) onFired();
+    } catch (e) {
+      const raw = e?.response?.data?.detail || '';
+      let detail;
+      if (e?.response?.status === 403 || /permission|forbidden|privilege/i.test(raw)) {
+        detail = 'Not permitted. Your API token needs VM.PowerMgmt (role PVEVMAdmin) to control guests.';
+      } else if (raw) {
+        detail = raw;
+      } else {
+        detail = 'Action failed. Check the connection and try again.';
+      }
+      setError(detail);
+      onClearPending();
+    }
+  };
+
+  const handle = (action, destructive) => {
+    if (pending) return;
+    if (destructive && confirming !== action) { setConfirming(action); return; }
+    fire(action);
+  };
+
+  const busy = !!pending;
+  const busyLabel = { start: 'Starting…', stop: 'Stopping…', reboot: 'Rebooting…', shutdown: 'Shutting down…' }[pending] || 'Working…';
+  const btnBase = "flex items-center justify-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+
+  return (
+    <div className="mb-5">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Power</div>
+      <div className="relative flex">
+        {running ? (
+          <>
+            <button
+              disabled={busy}
+              onClick={() => handle('shutdown', true)}
+              className={`${btnBase} flex-1 px-3 py-2 rounded-l-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 ${confirming === 'shutdown' ? '!bg-red-500 !text-white !border-red-500' : ''}`}>
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+              {busy ? busyLabel : confirming === 'shutdown' ? 'Confirm shutdown?' : 'Shutdown'}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => setOpen(o => !o)}
+              className={`${btnBase} px-2 py-2 rounded-r-lg border border-l-0 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500`}>
+              <ChevronDown size={14} />
+            </button>
+            {open && !busy && (
+              <div className="absolute top-full right-0 mt-1 w-40 z-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg overflow-hidden">
+                <button onClick={() => handle('reboot', true)}
+                  className={`w-full ${btnBase} justify-start px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 ${confirming === 'reboot' ? '!bg-amber-500 !text-white' : ''}`}>
+                  <RotateCw size={14} /> {confirming === 'reboot' ? 'Confirm reboot?' : 'Reboot'}
+                </button>
+                <button onClick={() => handle('stop', true)}
+                  className={`w-full ${btnBase} justify-start px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-red-600 dark:text-red-400 ${confirming === 'stop' ? '!bg-red-500 !text-white' : ''}`}>
+                  <Square size={13} /> {confirming === 'stop' ? 'Confirm stop?' : 'Stop (force)'}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <button
+            disabled={busy}
+            onClick={() => handle('start', false)}
+            className={`${btnBase} flex-1 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200`}>
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {busy ? busyLabel : 'Start'}
+          </button>
+        )}
+      </div>
+      {error && <div className="mt-2 text-[11px] text-red-500">{error}</div>}
+    </div>
+  );
+}
+
 function FlowWithProvider({ onOpenSettings }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pendingActions, setPendingActions] = useState({});
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [rrd, setRrd] = useState({ series: {} });
+  const [tasks, setTasks] = useState([]);
+  const [timeframe, setTimeframe] = useState('hour');
+  const [rrdLoading, setRrdLoading] = useState(false);
   const [ollamaOnline, setOllamaOnline] = useState(true);
   const { fitView } = useReactFlow();
 
@@ -166,6 +323,17 @@ function FlowWithProvider({ onOpenSettings }) {
   const chatInputRef = useRef(null);
   const chatScrollRef = useRef(null);
   const nodesRef = useRef([]);
+
+  const setNodePending = (nodeId, action) => {
+    setPendingActions(prev => ({ ...prev, [nodeId]: { action, since: Date.now() } }));
+  };
+  const clearNodePending = (nodeId) => {
+    setPendingActions(prev => {
+      const next = { ...prev };
+      delete next[nodeId];
+      return next;
+    });
+  };
 
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState([
@@ -223,6 +391,32 @@ function FlowWithProvider({ onOpenSettings }) {
     const id = setInterval(checkOllama, 15000);
     return () => { mounted = false; clearInterval(id); };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadTasks = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/v1/tasks`, { params: { limit: 12 }, timeout: 10000 });
+        if (mounted) setTasks(data?.tasks || []);
+      } catch {
+        if (mounted) setTasks([]);
+      }
+    };
+    loadTasks();
+    const id = setInterval(loadTasks, 15000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedNodeId) { setRrd({ series: {} }); return; }
+    let cancelled = false;
+    setRrdLoading(true);
+    axios.get(`${API_BASE}/api/v1/nodes/${selectedNodeId}/rrd`, { params: { timeframe }, timeout: 12000 })
+      .then(({ data }) => { if (!cancelled) setRrd(data || { series: {} }); })
+      .catch(() => { if (!cancelled) setRrd({ series: {} }); })
+      .finally(() => { if (!cancelled) setRrdLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedNodeId, timeframe]);
 
   const fetchInfra = useCallback(async () => {
     if (nodesRef.current.length === 0) setLoading(true);
@@ -301,6 +495,14 @@ function FlowWithProvider({ onOpenSettings }) {
   const containerCount = allNodes.filter(n => nodeKind(n) === 'container').length;
   const avgCpu = totalCount ? Math.round(allNodes.reduce((a, n) => a + pctToNumber(n.data?.cpu), 0) / totalCount) : 0;
   const avgRam = totalCount ? Math.round(allNodes.reduce((a, n) => a + pctToNumber(n.data?.ram), 0) / totalCount) : 0;
+  const attentionNodes = allNodes.filter(n => {
+    if (!isNodeOnline(n)) return true;
+    return pctToNumber(n.data?.cpu) >= 85 || pctToNumber(n.data?.ram) >= 85;
+  });
+  const attentionIds = new Set(attentionNodes.map(n => n.id));
+  const runningGuests = allNodes.filter(n => nodeKind(n) !== 'host' && isNodeOnline(n)).length;
+  const serviceCount = allNodes.reduce((a, n) => a + (n.data?.sub_services?.length || 0), 0);
+  const listNodes = allNodes.filter(n => !attentionIds.has(n.id));
 
   const selectNode = (id) => {
     setSelectedNodeId(id);
@@ -361,8 +563,8 @@ function FlowWithProvider({ onOpenSettings }) {
               <div className="grid grid-cols-2 rounded-lg border border-zinc-200 dark:border-zinc-800 divide-x divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden">
                 <StatCell label="Total Nodes" value={totalCount} />
                 <StatCell label="Online" value={`${onlineCount}/${totalCount}`} valueClass="text-emerald-600 dark:text-emerald-500" />
-                <StatCell label="Avg CPU" value={`${avgCpu}%`} />
-                <StatCell label="Avg Memory" value={`${avgRam}%`} />
+                <StatCell label="Guests Running" value={runningGuests} />
+                <StatCell label="Services" value={serviceCount} />
               </div>
               <div className="flex items-center gap-4 mt-3 px-1">
                 <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Server size={12} /><span className="text-[11px] font-mono">{hostCount} host</span></div>
@@ -370,10 +572,72 @@ function FlowWithProvider({ onOpenSettings }) {
                 <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Container size={12} /><span className="text-[11px] font-mono">{containerCount} ct</span></div>
                 {offlineCount > 0 && <div className="flex items-center gap-1.5 text-red-500 ml-auto"><span className="h-1.5 w-1.5 rounded-full bg-red-500" /><span className="text-[11px] font-mono">{offlineCount} down</span></div>}
               </div>
+
+              {/* aggregate resource bars — the only place CPU/Mem % appears */}
+              <div className="mt-4 px-1">
+                <Meter label="Cluster CPU" value={avgCpu} />
+                <Meter label="Cluster Memory" value={avgRam} />
+              </div>
+
+              {/* attention strip — only when something needs it */}
+              {attentionNodes.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Attention</div>
+                  <div className="space-y-1">
+                    {attentionNodes.map(n => {
+                      const offline = !isNodeOnline(n);
+                      const cpu = pctToNumber(n.data?.cpu);
+                      const ram = pctToNumber(n.data?.ram);
+                      const reason = offline ? 'offline'
+                        : cpu >= 85 && ram >= 85 ? `CPU ${cpu}% · RAM ${ram}%`
+                        : cpu >= 85 ? `CPU ${cpu}%`
+                        : `RAM ${ram}%`;
+                      const tone = offline || cpu >= 90 || ram >= 90 ? 'red' : 'amber';
+                      return (
+                        <button key={n.id} onClick={() => selectNode(n.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition-colors hover:opacity-80 ${
+                            tone === 'red'
+                              ? 'border-red-500/20 bg-red-500/5'
+                              : 'border-amber-500/20 bg-amber-500/5'}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${tone === 'red' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                          <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200 truncate flex-1">{n.data?.label}</span>
+                          <span className={`text-[10px] font-mono shrink-0 ${tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{reason}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* recent activity */}
+              {tasks.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">Recent Activity</div>
+                  <div className="space-y-0.5">
+                    {tasks.slice(0, 6).map((t, i) => {
+                      const Icon = t.state === 'ok' ? CheckCircle2
+                        : t.state === 'error' ? XCircle
+                        : Loader2;
+                      const dot = t.state === 'ok' ? 'text-emerald-500'
+                        : t.state === 'error' ? 'text-red-500'
+                        : 'text-amber-500';
+                      return (
+                        <div key={t.id || i} className="flex items-center gap-2 px-2 py-1.5 rounded-md">
+                          <Icon size={12} className={`${dot} shrink-0 ${t.state === 'running' ? 'animate-spin' : ''}`} />
+                          <span className="text-[11px] text-zinc-700 dark:text-zinc-300 truncate flex-1">
+                            {t.label}{t.guest ? <span className="text-zinc-400 dark:text-zinc-500 font-mono"> {t.guest}</span> : ''}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 shrink-0">{relTime(t.starttime)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="px-4 pt-3 pb-1 shrink-0">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Nodes ({totalCount})</div>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Nodes ({listNodes.length})</div>
             </div>
             <div className="flex-grow overflow-y-auto custom-scrollbar px-2 pb-3">
               {allNodes.length === 0 ? (
@@ -381,7 +645,7 @@ function FlowWithProvider({ onOpenSettings }) {
                   <p className="text-xs text-zinc-400 dark:text-zinc-600">Discovering nodes...</p>
                 </div>
               ) : (
-                allNodes.map((n) => {
+                listNodes.map((n) => {
                   const online = isNodeOnline(n);
                   return (
                     <button key={n.id} onClick={() => selectNode(n.id)}
@@ -413,6 +677,68 @@ function FlowWithProvider({ onOpenSettings }) {
                 <Meter label="CPU" value={pctToNumber(selectedNode.data.cpu)} />
                 <Meter label="Memory" value={pctToNumber(selectedNode.data.ram)} sub={selectedNode.data.ram} />
                 <Meter label="Disk" value={pctToNumber(selectedNode.data.disk)} sub={selectedNode.data.disk} />
+              </div>
+
+              {(() => {
+                const rx = selectedNode.data.rx_speed;
+                const tx = selectedNode.data.tx_speed;
+                const has = (v) => v && v !== 'N/A' && v !== '0 B/s';
+                return has(rx) || has(tx);
+              })() && (
+                <div className="mb-5 flex gap-2">
+                  <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                    <ArrowDown size={14} className="text-zinc-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 leading-none">Download</div>
+                      <div className="text-[12px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none mt-1 truncate">{selectedNode.data.rx_speed || '0 B/s'}</div>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                    <ArrowUp size={14} className="text-zinc-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 leading-none">Upload</div>
+                      <div className="text-[12px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none mt-1 truncate">{selectedNode.data.tx_speed || '0 B/s'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {nodeKind(selectedNode) !== 'host' && (
+                <PowerControls
+                  node={selectedNode}
+                  apiBase={API_BASE}
+                  onFired={fetchInfra}
+                  pendingInfo={pendingActions[selectedNode.id] || null}
+                  onSetPending={(action) => setNodePending(selectedNode.id, action)}
+                  onClearPending={() => clearNodePending(selectedNode.id)}
+                />
+              )}
+
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">History</div>
+                  <div className="flex items-center gap-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 p-0.5">
+                    {['hour', 'day', 'week'].map(tf => (
+                      <button key={tf} onClick={() => setTimeframe(tf)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-colors ${
+                          timeframe === tf
+                            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                            : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3 px-1">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">CPU</div>
+                    <Sparkline data={rrd.series?.cpu} color="#3b82f6" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Memory</div>
+                    <Sparkline data={rrd.series?.mem} color="#8b5cf6" />
+                  </div>
+                </div>
               </div>
 
               <div className="mb-5">
@@ -457,7 +783,7 @@ function FlowWithProvider({ onOpenSettings }) {
 
         {!chatOpen && (
           <button
-            onClick={() => setChatOpen(true)}
+            onClick={() => { setChatOpen(true); setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 60); }}
             title="Open assistant"
             className="absolute top-4 right-4 z-30 flex items-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600 text-xs font-medium px-3 py-2 rounded-lg shadow-sm transition-colors"
           >
@@ -495,7 +821,7 @@ function FlowWithProvider({ onOpenSettings }) {
                   {!ollamaOnline ? 'Offline' : isThinking ? 'Thinking' : 'Ready'}
                 </span>
               </div>
-              <button onClick={() => setChatOpen(false)} title="Close" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">
+              <button onClick={() => { setChatOpen(false); setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 60); }} title="Close" className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">
                 <PanelRightClose size={15} />
               </button>
             </div>

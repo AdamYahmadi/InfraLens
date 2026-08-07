@@ -81,6 +81,185 @@ class ProxmoxEngine:
                             return addr['ip-address']
         except: return None
         return None
+    
+    
+    def resolve_target(self, node_id):
+        """
+        Returns a dict describing the target:
+          host:  {"kind": "host", "node": <host_name>}
+          guest: {"kind": "lxc"|"qemu", "node": <host_name>, "vmid": <int>}
+        or None if it can't be found.
+        """
+        node_id = str(node_id)
+        try:
+            p_nodes = self.pve.nodes.get()
+        except Exception as e:
+            print(f"[engine] resolve_target: cannot list nodes: {e}")
+            return None
+
+        host_names = [n.get('node') for n in p_nodes]
+
+        if node_id in host_names:
+            return {"kind": "host", "node": node_id}
+
+        for host_name in host_names:
+            try:
+                for lxc in self.pve.nodes(host_name).lxc.get():
+                    if str(lxc.get('vmid')) == node_id:
+                        return {"kind": "lxc", "node": host_name, "vmid": int(node_id)}
+            except Exception:
+                pass
+            try:
+                for vm in self.pve.nodes(host_name).qemu.get():
+                    if str(vm.get('vmid')) == node_id:
+                        return {"kind": "qemu", "node": host_name, "vmid": int(node_id)}
+            except Exception:
+                pass
+        return None
+
+    
+    def get_rrd(self, node_id, timeframe="hour"):
+        if timeframe not in ("hour", "day", "week", "month", "year"):
+            timeframe = "hour"
+
+        target = self.resolve_target(node_id)
+        if not target:
+            return {"error": "not_found", "series": {}}
+
+        try:
+            if target["kind"] == "host":
+                raw = self.pve.nodes(target["node"]).rrddata.get(timeframe=timeframe)
+            elif target["kind"] == "lxc":
+                raw = self.pve.nodes(target["node"]).lxc(target["vmid"]).rrddata.get(timeframe=timeframe)
+            else:  # qemu
+                raw = self.pve.nodes(target["node"]).qemu(target["vmid"]).rrddata.get(timeframe=timeframe)
+        except Exception as e:
+            return {"error": str(e), "series": {}}
+
+        cpu, mem, netin, netout, times = [], [], [], [], []
+        for row in raw:
+            if "time" not in row:
+                continue
+            times.append(row.get("time"))
+            c = row.get("cpu")
+            cpu.append(round(c * 100, 2) if c is not None else None)
+            mem_used = row.get("mem", row.get("memused"))
+            mem_max = row.get("maxmem", row.get("memtotal"))
+            if mem_used is not None and mem_max:
+                mem.append(round((mem_used / mem_max) * 100, 2))
+            else:
+                mem.append(None)
+            netin.append(row.get("netin"))
+            netout.append(row.get("netout"))
+
+        return {
+            "timeframe": timeframe,
+            "kind": target["kind"],
+            "series": {
+                "time": times,
+                "cpu": cpu,
+                "mem": mem,
+                "netin": netin,
+                "netout": netout,
+            },
+        }
+
+    
+    def guest_action(self, node_id, action):
+        action = str(action).lower().strip()
+        if action not in ("start", "stop", "reboot", "shutdown"):
+            return {"ok": False, "detail": f"Unsupported action '{action}'."}
+
+        target = self.resolve_target(node_id)
+        if not target:
+            return {"ok": False, "detail": "Target not found. It may have been removed."}
+        if target["kind"] == "host":
+            return {"ok": False, "detail": "Power actions apply to VMs and containers, not the host."}
+
+        try:
+            node = target["node"]
+            vmid = target["vmid"]
+            if target["kind"] == "lxc":
+                status_ep = self.pve.nodes(node).lxc(vmid).status
+            else:
+                status_ep = self.pve.nodes(node).qemu(vmid).status
+
+            if action == "start":
+                status_ep.start.post()
+            elif action == "stop":
+                status_ep.stop.post()
+            elif action == "shutdown":
+                status_ep.shutdown.post()
+            elif action == "reboot":
+                status_ep.reboot.post()
+
+            verb = {"start": "Starting", "stop": "Stopping",
+                    "reboot": "Rebooting", "shutdown": "Shutting down"}[action]
+            return {"ok": True, "detail": f"{verb} {target['kind'].upper()} {vmid}.", "action": action}
+        except Exception as e:
+            return {"ok": False, "detail": f"Action failed: {e}"}
+    
+    
+    def get_tasks(self, limit=15):
+        TYPE_LABELS = {
+            "qmstart": "Started VM", "qmstop": "Stopped VM", "qmreboot": "Rebooted VM",
+            "qmshutdown": "Shut down VM", "qmreset": "Reset VM", "qmsuspend": "Suspended VM",
+            "qmresume": "Resumed VM", "qmigrate": "Migrated VM", "qmrestore": "Restored VM",
+            "qmclone": "Cloned VM", "qmcreate": "Created VM", "qmdestroy": "Deleted VM",
+            "vzstart": "Started CT", "vzstop": "Stopped CT", "vzreboot": "Rebooted CT",
+            "vzshutdown": "Shut down CT", "vzsuspend": "Suspended CT", "vzresume": "Resumed CT",
+            "vzcreate": "Created CT", "vzdestroy": "Deleted CT", "vzrestore": "Restored CT",
+            "vzmigrate": "Migrated CT", "vzdump": "Backup", "vzsnapshot": "Snapshot",
+            "qmsnapshot": "Snapshot", "imgcopy": "Disk copy", "download": "Download",
+            "aptupdate": "Package update", "startall": "Started all", "stopall": "Stopped all",
+            "spiceproxy": "Console", "vncproxy": "Console", "srvreload": "Service reload",
+        }
+        
+        NOISE = {"vncproxy", "vncshell", "spiceproxy", "spiceshell",
+                 "pull_file", "termproxy", "push_file"
+        }
+        
+        try:
+            p_nodes = self.pve.nodes.get()
+        except Exception as e:
+            return {"error": str(e), "tasks": []}
+
+        collected = []
+        for n in p_nodes:
+            host = n.get("node")
+            if not host:
+                continue
+            try:
+                rows = self.pve.nodes(host).tasks.get(limit=limit, errors=1)
+            except Exception:
+                continue
+            for t in rows:
+                ttype = t.get("type", "")
+                if ttype in NOISE:
+                    continue
+                status = t.get("status")
+                if status is None:
+                    ok, state = None, "running"
+                elif status == "OK":
+                    ok, state = True, "ok"
+                else:
+                    ok, state = False, "error"
+                collected.append({
+                    "id": t.get("upid", ""),
+                    "type": ttype,
+                    "label": TYPE_LABELS.get(ttype, ttype or "Task"),
+                    "node": host,
+                    "guest": str(t.get("id")) if t.get("id") is not None else None,
+                    "user": t.get("user", ""),
+                    "starttime": t.get("starttime", 0),
+                    "endtime": t.get("endtime", 0),
+                    "state": state,
+                    "ok": ok,
+                })
+
+        collected.sort(key=lambda x: x.get("starttime", 0), reverse=True)
+        return {"tasks": collected[:limit]}
+
 
     def discover_infrastructure(self):
         nodes, edges = [], []

@@ -202,7 +202,46 @@ def neural_link_chat(request: ChatRequest):
     except Exception as e:
         return {"reply": f"Neural Link failure: could not reach Ollama at {url} ({e})"}
 
+class NodeAction(BaseModel):
+    action: str
 
+@app.get("/api/v1/tasks")
+def recent_tasks(limit: int = 15):
+    engine = manager.get_engine()
+    if engine is None:
+        return JSONResponse(status_code=503, content={"error": "engine_unavailable", "tasks": []})
+    try:
+        return engine.get_tasks(limit)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e), "tasks": []})
+
+@app.get("/api/v1/nodes/{node_id}/rrd")
+def node_rrd(node_id: str, timeframe: str = "hour"):
+    engine = manager.get_engine()
+    if engine is None:
+        return JSONResponse(status_code=503,
+            content={"error": "engine_unavailable", "series": {}})
+    try:
+        return engine.get_rrd(node_id, timeframe)
+    except Exception as e:
+        return JSONResponse(status_code=500,
+            content={"error": str(e), "series": {}})
+
+
+@app.post("/api/v1/nodes/{node_id}/action")
+def node_action(node_id: str, body: NodeAction):
+    engine = manager.get_engine()
+    if engine is None:
+        return JSONResponse(status_code=503,
+            content={"ok": False, "detail": "Proxmox engine is not available."})
+    try:
+        result = engine.guest_action(node_id, body.action)
+        code = 200 if result.get("ok") else 400
+        return JSONResponse(status_code=code, content=result)
+    except Exception as e:
+        return JSONResponse(status_code=500,
+            content={"ok": False, "detail": f"Action failed: {e}"})
+        
 def _mount_frontend():
     candidates = [
         Path(__file__).resolve().parent / "static",          

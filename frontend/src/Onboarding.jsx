@@ -90,6 +90,7 @@ export default function Onboarding({ onDone }) {
           <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl p-9">
             {step === 1 && (
               <Stage label="Step 1 — Proxmox" title="Connect your cluster"
+                onSubmit={testProxmox}
                 blurb="InfraLens reads your nodes and containers through the Proxmox API. Create a token under Datacenter → Permissions → API Tokens.">
                 <Row>
                   <Field grow label="Host / IP" placeholder="192.168.1.50" value={form.pve_host} onChange={set("pve_host")} />
@@ -103,24 +104,26 @@ export default function Onboarding({ onDone }) {
                 <Toggle checked={form.pve_verify_ssl} onChange={set("pve_verify_ssl")}>Verify SSL certificate</Toggle>
                 <Status state={pveState} msg={pveMsg} />
                 <Nav onBack={() => setStep(0)}
-                  primary={{ label: "Test & continue", onClick: testProxmox, busy }}
+                  primary={{ label: "Test & continue", onClick: testProxmox, busy, submit: true }}
                   secondary={null} />
               </Stage>
             )}
             {step === 2 && (
               <Stage label="Step 2 — SSH probe" title="Detect services (optional)"
+                onSubmit={() => setStep(3)}
                 blurb="With SSH to the Proxmox host, InfraLens can look inside LXC containers and detect what's running. Skip if you'd rather not.">
                 <Row>
                   <Field label="SSH user" value={form.ssh_user} onChange={set("ssh_user")} />
                   <Field label="SSH password" type="password" value={form.ssh_password} onChange={set("ssh_password")} />
                 </Row>
                 <Nav onBack={() => setStep(1)}
-                  primary={{ label: "Continue", onClick: () => setStep(3) }}
+                  primary={{ label: "Continue", onClick: () => setStep(3), submit: true }}
                   secondary={{ label: "Skip", onClick: () => setStep(3) }} />
               </Stage>
             )}
             {step === 3 && (
               <Stage label="Step 3 — Neural link" title="Connect local AI"
+                onSubmit={() => { ollState === "idle" ? testOllama() : finish(); }}
                 blurb="InfraLens answers questions about your lab using a local Ollama model — nothing leaves your network.">
                 <Row>
                   <Field grow label="Ollama URL" value={form.ollama_url} onChange={set("ollama_url")} />
@@ -137,8 +140,8 @@ export default function Onboarding({ onDone }) {
                 <Status state={ollState} msg={ollMsg} />
                 <Nav onBack={() => setStep(2)}
                   primary={ollState === "idle"
-                    ? { label: "Test connection", onClick: testOllama, busy }
-                    : { label: "Finish setup", onClick: finish, busy }}
+                    ? { label: "Test connection", onClick: testOllama, busy, submit: true }
+                    : { label: "Finish setup", onClick: finish, busy, submit: true }}
                   secondary={ollState === "fail" ? { label: "Finish without AI", onClick: finish } : null} />
               </Stage>
             )}
@@ -218,15 +221,23 @@ function Stepper({ active }) {
   );
 }
 
-function Stage({ label, title, blurb, children }) {
-  return (
-    <div className="flex flex-col">
+function Stage({ label, title, blurb, children, onSubmit }) {
+  const inner = (
+    <>
       <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-2">{label}</span>
       <h2 className="text-xl font-semibold tracking-tight mb-2">{title}</h2>
       <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed mb-7">{blurb}</p>
       <div className="space-y-4">{children}</div>
-    </div>
+    </>
   );
+  if (onSubmit) {
+    return (
+      <form className="flex flex-col" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
+        {inner}
+      </form>
+    );
+  }
+  return <div className="flex flex-col">{inner}</div>;
 }
 
 function Status({ state, msg }) {
@@ -245,11 +256,11 @@ function Nav({ onBack, primary, secondary }) {
   return (
     <div className="flex items-center justify-between pt-4">
       {onBack
-        ? <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><ArrowLeft size={15} /> Back</button>
+        ? <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><ArrowLeft size={15} /> Back</button>
         : <span />}
       <div className="flex items-center gap-4">
-        {secondary && <button onClick={secondary.onClick} className="text-[13px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">{secondary.label}</button>}
-        <button onClick={primary.onClick} disabled={primary.busy} className={btnPrimary}>
+        {secondary && <button type="button" onClick={secondary.onClick} className="text-[13px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">{secondary.label}</button>}
+        <button type={primary.submit ? "submit" : "button"} onClick={primary.submit ? undefined : primary.onClick} disabled={primary.busy} className={btnPrimary}>
           {primary.busy ? <Loader2 size={15} className="animate-spin" /> : null}
           {primary.label}{!primary.busy && <ArrowRight size={15} />}
         </button>
