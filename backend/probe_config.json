@@ -1,7 +1,15 @@
 {
   "ignore_list": [
-    "sshd", "systemd", "rpcbind", "master", "dhclient", 
-    "dbus-daemon", "pve-ha-lrm", "agetty", "init", "systemd-resolve"
+    "sshd",
+    "systemd",
+    "rpcbind",
+    "master",
+    "dhclient",
+    "dbus-daemon",
+    "pve-ha-lrm",
+    "agetty",
+    "init",
+    "systemd-resolve"
   ],
   "service_map": {
     "next-server": "next-server",

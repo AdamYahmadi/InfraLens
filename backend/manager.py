@@ -1,7 +1,7 @@
 import os
-import requests
 
 import config_store
+import requests
 
 _engine = None
 _probe = None
@@ -9,7 +9,6 @@ _engine_error = None
 
 
 def _friendly_error(e: Exception) -> str:
-    """Translate raw Python/SSL exceptions into readable user-facing messages."""
     msg = str(e)
     if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in msg or "SSL" in msg:
         return (
@@ -17,15 +16,39 @@ def _friendly_error(e: Exception) -> str:
             "Your Proxmox host uses a self-signed certificate — "
             "disable 'Verify SSL certificate' in Settings."
         )
-    if "Connection refused" in msg or "No route to host" in msg or "timed out" in msg.lower():
+    if (
+        "Connection refused" in msg
+        or "No route to host" in msg
+        or "timed out" in msg.lower()
+    ):
         return "Couldn't reach Proxmox. Check the IP address, port, and Local Network permission."
     if "401" in msg or "403" in msg or "Unauthorized" in msg:
-        return "Authentication failed. Check your API user, token name, and token value."
+        return (
+            "Authentication failed. Check your API user, token name, and token value."
+        )
     return f"Connection failed: {e}"
 
 
+def _friendly_ollama_error(e: Exception, url: str) -> str:
+    msg = str(e)
+    if (
+        "Connection refused" in msg
+        or "Failed to establish a new connection" in msg
+        or "Max retries" in msg
+    ):
+        return f"Ollama isn't running or isn't reachable at {url}. Start Ollama and try again."
+    if "timed out" in msg.lower() or "timeout" in msg.lower():
+        return f"Ollama didn't respond at {url}. Check that it's running and reachable."
+    if (
+        "Name or service not known" in msg
+        or "nodename nor servname" in msg
+        or "getaddrinfo" in msg
+    ):
+        return f"Couldn't find the Ollama host at {url}. Check the URL."
+    return f"Couldn't reach Ollama at {url}. Make sure it's running."
+
+
 def reload_from_config() -> None:
-    """(Re)build the engine and probe from the saved config."""
     global _engine, _probe, _engine_error
     cfg = config_store.load_config()
     config_store.apply_to_env(cfg)
@@ -35,10 +58,11 @@ def reload_from_config() -> None:
 
     if not config_store.is_configured(cfg):
         os.environ.pop("PVE_VERIFY_SSL", None)
-        return 
+        return
 
     try:
         from proxmox_engine import ProxmoxEngine
+
         _engine = ProxmoxEngine(
             host=cfg["pve_host"],
             user=cfg["pve_user"],
@@ -53,7 +77,8 @@ def reload_from_config() -> None:
 
     try:
         from service_probe import ServiceProbe
-        _probe = ServiceProbe()  
+
+        _probe = ServiceProbe()
     except Exception as e:
         _probe = None
         print(f"[manager] probe init failed: {e}")
@@ -68,14 +93,19 @@ def get_probe():
 
 
 def check_proxmox() -> dict:
-    """Lightweight reachability check for the Proxmox API."""
     cfg = config_store.load_config()
     if not config_store.is_configured(cfg):
-        return {"ok": False, "configured": False,
-                "detail": "Proxmox connection not configured yet."}
+        return {
+            "ok": False,
+            "configured": False,
+            "detail": "Proxmox connection not configured yet.",
+        }
     if _engine is None:
-        return {"ok": False, "configured": True,
-                "detail": _engine_error or "Engine not initialised."}
+        return {
+            "ok": False,
+            "configured": True,
+            "detail": _engine_error or "Engine not initialised.",
+        }
     try:
         _engine.pve.version.get()
         return {"ok": True, "configured": True, "detail": "Connected."}
@@ -84,7 +114,6 @@ def check_proxmox() -> dict:
 
 
 def check_ollama() -> dict:
-    """Reachability check for the local Ollama server."""
     cfg = config_store.load_config()
     url = cfg.get("ollama_url") or "http://127.0.0.1:11434"
     model = cfg.get("ollama_model") or "llama3"
@@ -95,27 +124,36 @@ def check_ollama() -> dict:
         present = any(model in t for t in tags)
         return {
             "ok": True,
-            "detail": "Connected." if present
-                      else f"Reachable, but model '{model}' is not pulled.",
+            "detail": (
+                "Connected."
+                if present
+                else f"Reachable, but model '{model}' is not pulled."
+            ),
             "model_ready": present,
             "url": url,
         }
     except Exception as e:
-        return {"ok": False,
-                "detail": f"Could not reach Ollama at {url}: {e}",
-                "model_ready": False, "url": url}
+        return {
+            "ok": False,
+            "detail": _friendly_ollama_error(e, url),
+            "model_ready": False,
+            "url": url,
+        }
 
 
 def test_proxmox(params: dict) -> dict:
-    """Try a candidate Proxmox connection WITHOUT saving it (used by setup)."""
     required = ("pve_host", "pve_user", "pve_token_name", "pve_token_value")
     if not all(params.get(k) for k in required):
-        return {"ok": False, "detail": "Fill in host, user, token name and token value first."}
+        return {
+            "ok": False,
+            "detail": "Fill in host, user, token name and token value first.",
+        }
     old_port = os.environ.get("PVE_PORT")
     if params.get("pve_port"):
         os.environ["PVE_PORT"] = str(params["pve_port"])
     try:
         from proxmox_engine import ProxmoxEngine
+
         eng = ProxmoxEngine(
             host=params["pve_host"],
             user=params["pve_user"],
@@ -124,7 +162,10 @@ def test_proxmox(params: dict) -> dict:
             verify_ssl=bool(params.get("pve_verify_ssl")),
         )
         if not getattr(eng, "pve", None):
-            return {"ok": False, "detail": "Couldn't reach that host. Check the IP/port and SSL setting."}
+            return {
+                "ok": False,
+                "detail": "Couldn't reach that host. Check the IP/port and SSL setting.",
+            }
         version = eng.pve.version.get()
         ver = version.get("version", "") if isinstance(version, dict) else ""
         return {"ok": True, "detail": f"Connected to Proxmox VE {ver}".strip() + "."}
@@ -138,18 +179,25 @@ def test_proxmox(params: dict) -> dict:
 
 
 def test_ollama(url: str | None, model: str | None) -> dict:
-    """Check a candidate Ollama endpoint and whether the model is present."""
     url = (url or "http://127.0.0.1:11434").rstrip("/")
     try:
         r = requests.get(f"{url}/api/tags", timeout=5)
         r.raise_for_status()
         models = [m.get("name", "") for m in r.json().get("models", [])]
         ready = any((model or "") in m for m in models)
-        detail = "Connected." if ready else f"Reachable, but '{model}' isn't pulled yet. Run: ollama pull {model}"
+        detail = (
+            "Connected."
+            if ready
+            else f"Reachable, but '{model}' isn't pulled yet. Run: ollama pull {model}"
+        )
         return {"ok": True, "detail": detail, "models": models, "model_ready": ready}
     except Exception as e:
-        return {"ok": False, "detail": f"Couldn't reach Ollama at {url}: {e}",
-                "models": [], "model_ready": False}
+        return {
+            "ok": False,
+            "detail": _friendly_ollama_error(e, url),
+            "models": [],
+            "model_ready": False,
+        }
 
 
 reload_from_config()

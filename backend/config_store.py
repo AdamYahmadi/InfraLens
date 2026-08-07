@@ -1,6 +1,6 @@
+import json
 import os
 import sys
-import json
 from pathlib import Path
 
 APP_NAME = "InfraLens"
@@ -30,24 +30,19 @@ ENV_MAP = {
     "ollama_url": "OLLAMA_URL",
 }
 
-
 def config_dir() -> Path:
-    """Return (and create) the per-user config directory."""
     if sys.platform == "darwin":
         base = Path.home() / "Library" / "Application Support"
-    else:  # linux / other unix
+    else:
         base = Path(os.getenv("XDG_CONFIG_HOME", str(Path.home() / ".config")))
     d = base / APP_NAME
     d.mkdir(parents=True, exist_ok=True)
     return d
 
-
 def config_path() -> Path:
     return config_dir() / "config.json"
 
-
 def load_config() -> dict:
-    """Load saved settings, layered over defaults. Never raises."""
     cfg = dict(DEFAULTS)
     path = config_path()
     if path.exists():
@@ -56,7 +51,7 @@ def load_config() -> dict:
                 saved = json.load(f)
             if isinstance(saved, dict):
                 cfg.update({k: saved.get(k, cfg[k]) for k in DEFAULTS})
-        except Exception as e:  
+        except Exception as e:
             print(f"[config] could not read config.json: {e}")
 
     for key, env_name in ENV_MAP.items():
@@ -68,9 +63,7 @@ def load_config() -> dict:
 
     return cfg
 
-
 def save_config(new_values: dict) -> dict:
-    """Merge new_values into the stored config and persist it."""
     cfg = load_config()
     for key in DEFAULTS:
         if key in new_values and new_values[key] is not None:
@@ -79,15 +72,14 @@ def save_config(new_values: dict) -> dict:
     tmp = path.with_suffix(".json.tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
-    os.replace(tmp, path)  
+    os.replace(tmp, path)
     try:
-        os.chmod(path, 0o600) 
+        os.chmod(path, 0o600)
     except Exception:
         pass
     return cfg
 
 def reset_config() -> None:
-    """Delete all saved settings (hard disconnect / start over)."""
     path = config_path()
     try:
         if path.exists():
@@ -97,16 +89,12 @@ def reset_config() -> None:
     for env_name in list(ENV_MAP.values()) + ["PVE_VERIFY_SSL"]:
         os.environ.pop(env_name, None)
 
-
 def is_configured(cfg: dict | None = None) -> bool:
-    """True once the minimum Proxmox connection fields are present."""
     cfg = cfg or load_config()
     return bool(cfg.get("pve_host") and cfg.get("pve_user")
                 and cfg.get("pve_token_name") and cfg.get("pve_token_value"))
 
-
 def public_config(cfg: dict | None = None) -> dict:
-    """Config for the UI: secrets replaced by a boolean 'is set' flag."""
     cfg = cfg or load_config()
     out = {}
     for key, val in cfg.items():
@@ -117,9 +105,7 @@ def public_config(cfg: dict | None = None) -> dict:
     out["configured"] = is_configured(cfg)
     return out
 
-
 def apply_to_env(cfg: dict | None = None) -> None:
-    """Push config into os.environ so the legacy engine/probe modules see it."""
     cfg = cfg or load_config()
     for key, env_name in ENV_MAP.items():
         if cfg.get(key) not in (None, ""):
