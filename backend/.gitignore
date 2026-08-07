@@ -7,5 +7,10 @@ venv/
 __pycache__/
 *.py[cod]
 
+# PyInstaller build output
+build/
+dist/
+*.spec.bak
+
 # OS
 .DS_Store

@@ -1,20 +1,18 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+import config_store
+import manager
+import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import requests
-
-import config_store
-import manager
 
 APP_VERSION = os.getenv("INFRALENS_VERSION", "0.1.0")
 
 app = FastAPI(title="InfraLens API", version=APP_VERSION)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +21,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class ChatMessage(BaseModel):
     role: str
@@ -92,11 +91,13 @@ def test_proxmox(p: ProxmoxTest):
 def test_ollama(p: OllamaTest):
     return manager.test_ollama(p.ollama_url, p.ollama_model)
 
+
 @app.post("/api/v1/config/reset")
 def reset_config():
     config_store.reset_config()
     manager.reload_from_config()
     return {"reset": True}
+
 
 @app.get("/api/v1/health")
 def health():
@@ -111,15 +112,22 @@ def health():
 @app.get("/api/v1/infrastructure")
 def get_infrastructure():
     if not config_store.is_configured():
-        return {"nodes": [], "edges": [],
-                "error": "not_configured",
-                "message": "Add your Proxmox connection in Settings to begin."}
+        return {
+            "nodes": [],
+            "edges": [],
+            "error": "not_configured",
+            "message": "Add your Proxmox connection in Settings to begin.",
+        }
 
     engine = manager.get_engine()
     if engine is None:
         status = manager.check_proxmox()
-        return {"nodes": [], "edges": [],
-                "error": "engine_unavailable", "message": status["detail"]}
+        return {
+            "nodes": [],
+            "edges": [],
+            "error": "engine_unavailable",
+            "message": status["detail"],
+        }
 
     try:
         infra = engine.discover_infrastructure()
@@ -136,17 +144,21 @@ def get_infrastructure():
                     services = probe.get_lxc_services(str(vmid))
                     if services:
                         node["data"]["sub_services"] = services
-                        if (any("docker" in str(s).lower() for s in services)
-                                and "docker" not in node["data"].get("tags", [])):
+                        if any(
+                            "docker" in str(s).lower() for s in services
+                        ) and "docker" not in node["data"].get("tags", []):
                             node["data"]["tags"].append("docker")
                 except Exception as probe_error:
                     print(f"[API] probe failed on LXC {vmid} -> {probe_error}")
         return infra
     except Exception as e:
         print(f"[API] error in get_infrastructure: {e}")
-        return {"nodes": [], "edges": [],
-                "error": "discovery_failed",
-                "message": f"Could not read the cluster: {e}"}
+        return {
+            "nodes": [],
+            "edges": [],
+            "error": "discovery_failed",
+            "message": f"Could not read the cluster: {e}",
+        }
 
 
 @app.post("/api/v1/chat")
@@ -177,7 +189,7 @@ def neural_link_chat(request: ChatRequest):
 
         CRITICAL FORMATTING RULES - DO NOT IGNORE:
         You MUST translate <RAW_TELEMETRY> into professional Markdown.
-        Use Markdown Headers (###) to separate distinct thoughts or data types.
+        Use Markdown Headers (
 
         {lab_state_text}
         """
@@ -197,59 +209,71 @@ def neural_link_chat(request: ChatRequest):
             timeout=60,
         )
         response.raise_for_status()
-        reply = response.json().get("message", {}).get("content", "Neural Link timeout.")
+        reply = (
+            response.json().get("message", {}).get("content", "Neural Link timeout.")
+        )
         return {"reply": reply}
     except Exception as e:
         return {"reply": f"Neural Link failure: could not reach Ollama at {url} ({e})"}
 
+
 class NodeAction(BaseModel):
     action: str
+
 
 @app.get("/api/v1/tasks")
 def recent_tasks(limit: int = 15):
     engine = manager.get_engine()
     if engine is None:
-        return JSONResponse(status_code=503, content={"error": "engine_unavailable", "tasks": []})
+        return JSONResponse(
+            status_code=503, content={"error": "engine_unavailable", "tasks": []}
+        )
     try:
         return engine.get_tasks(limit)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e), "tasks": []})
 
+
 @app.get("/api/v1/nodes/{node_id}/rrd")
 def node_rrd(node_id: str, timeframe: str = "hour"):
     engine = manager.get_engine()
     if engine is None:
-        return JSONResponse(status_code=503,
-            content={"error": "engine_unavailable", "series": {}})
+        return JSONResponse(
+            status_code=503, content={"error": "engine_unavailable", "series": {}}
+        )
     try:
         return engine.get_rrd(node_id, timeframe)
     except Exception as e:
-        return JSONResponse(status_code=500,
-            content={"error": str(e), "series": {}})
+        return JSONResponse(status_code=500, content={"error": str(e), "series": {}})
 
 
 @app.post("/api/v1/nodes/{node_id}/action")
 def node_action(node_id: str, body: NodeAction):
     engine = manager.get_engine()
     if engine is None:
-        return JSONResponse(status_code=503,
-            content={"ok": False, "detail": "Proxmox engine is not available."})
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "detail": "Proxmox engine is not available."},
+        )
     try:
         result = engine.guest_action(node_id, body.action)
         code = 200 if result.get("ok") else 400
         return JSONResponse(status_code=code, content=result)
     except Exception as e:
-        return JSONResponse(status_code=500,
-            content={"ok": False, "detail": f"Action failed: {e}"})
-        
+        return JSONResponse(
+            status_code=500, content={"ok": False, "detail": f"Action failed: {e}"}
+        )
+
+
 def _mount_frontend():
     candidates = [
-        Path(__file__).resolve().parent / "static",          
-        Path(__file__).resolve().parent.parent / "frontend" / "dist", 
+        Path(__file__).resolve().parent / "static",
+        Path(__file__).resolve().parent.parent / "frontend" / "dist",
     ]
     for dist in candidates:
         if dist.is_dir():
             from fastapi.staticfiles import StaticFiles
+
             app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
             print(f"[main] serving frontend from {dist}")
             return
@@ -258,8 +282,8 @@ def _mount_frontend():
 
 _mount_frontend()
 
-
 if __name__ == "__main__":
     import uvicorn
+
     api_port = int(os.getenv("API_PORT", 8756))
     uvicorn.run(app, host="127.0.0.1", port=api_port)
