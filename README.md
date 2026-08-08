@@ -134,28 +134,15 @@ Credentials are saved locally to `~/Library/Application Support/InfraLens/config
 
 ## 🖼 Screenshots
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**LLM diagnostics**
-
-Query service status and trace bottlenecks in plain language with a local model.
+**LLM diagnostics** — query service status and trace bottlenecks in plain language with a local model.
 
 <img src="./docs/chat-interface.png" alt="Chat interface" width="100%" />
 
-</td>
-<td width="50%" valign="top">
+<br/>
 
-**Node telemetry**
-
-Live resource usage, network throughput, history, and active services per guest.
+**Node telemetry** — live resource usage, network throughput, history, and active services per guest.
 
 <img src="./docs/node-details.png" alt="Node details" width="100%" />
-
-</td>
-</tr>
-</table>
 
 <br/>
 
@@ -195,6 +182,8 @@ InfraLens/
 ├── frontend/     React + Vite · topology UI, telemetry panels, chat
 └── src-tauri/    Tauri 2 · bundles the backend, manages the window
 ```
+
+<br/>
 
 ---
 
