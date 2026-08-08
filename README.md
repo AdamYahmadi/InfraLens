@@ -140,11 +140,6 @@ Credentials are saved locally to `~/Library/Application Support/InfraLens/config
 
 <br/>
 
-**Node telemetry** — live resource usage, network throughput, history, and active services per guest.
-
-<img src="./docs/node-details.png" alt="Node details" width="100%" />
-
-<br/>
 
 ## 🛠 Development
 
