@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ArrowDown,
   ArrowUp,
+  ArrowLeft,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -242,9 +243,9 @@ function Meter({ label, value, sub }) {
         ? "bg-amber-500"
         : "bg-zinc-800 dark:bg-zinc-200";
   return (
-    <div className="py-2.5">
+    <div className="py-2">
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+        <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
           {label}
         </span>
         <div className="flex items-baseline gap-2">
@@ -253,15 +254,15 @@ function Meter({ label, value, sub }) {
               {sub}
             </span>
           )}
-          <span className="text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">
+          <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">
             {v}%
           </span>
         </div>
       </div>
-      <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-sm overflow-hidden">
+      <div className="w-full h-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-sm transition-all duration-700 ${barColor}`}
-          style={{ width: `${v}%` }}
+          className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+          style={{ width: v > 0 ? `max(2px, ${v}%)` : 0 }}
         />
       </div>
     </div>
@@ -299,10 +300,10 @@ function Sparkline({ data = [], color = "currentColor", height = 28 }) {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-500">
+        <span className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 tabular-nums">
           avg {Math.round(avg)}%
         </span>
-        <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-200">
+        <span className="text-[11px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">
           {Math.round(last)}%
         </span>
       </div>
@@ -414,7 +415,7 @@ function PowerControls({
 
   return (
     <div className="mb-5">
-      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
         Power
       </div>
       <div className="relative flex">
@@ -444,7 +445,7 @@ function PowerControls({
               <ChevronDown size={14} />
             </button>
             {open && !busy && (
-              <div className="absolute top-full right-0 mt-1 w-40 z-40 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg overflow-hidden">
+              <div className="absolute top-full right-0 mt-1.5 w-40 z-40 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0d0d0f] shadow-md overflow-hidden">
                 <button
                   onClick={() => handle("reboot", true)}
                   className={`w-full ${btnBase} justify-start px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 ${confirming === "reboot" ? "!bg-amber-500 !text-white" : ""}`}
@@ -554,7 +555,7 @@ function FlowWithProvider({ onOpenSettings }) {
     const checkOllama = async () => {
       try {
         const { data } = await axios.get(`${API_BASE}/api/v1/health`, {
-          timeout: 8000,
+          timeout: 20000,
         });
         if (mounted) setOllamaOnline(!!data?.ollama?.ok);
       } catch {
@@ -764,12 +765,12 @@ function FlowWithProvider({ onOpenSettings }) {
   );
 
   const StatCell = ({ label, value, valueClass = "" }) => (
-    <div className="flex flex-col gap-1 px-3 py-2.5">
-      <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 leading-none">
+    <div className="flex flex-col gap-1.5 bg-white dark:bg-[#0d0d0f] px-3 py-3">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 leading-none">
         {label}
       </span>
       <span
-        className={`text-lg font-mono font-semibold leading-none ${valueClass || "text-zinc-800 dark:text-zinc-100"}`}
+        className={`text-[17px] font-mono font-semibold leading-none tabular-nums ${valueClass || "text-zinc-800 dark:text-zinc-100"}`}
       >
         {value}
       </span>
@@ -790,8 +791,8 @@ function FlowWithProvider({ onOpenSettings }) {
       )}
 
       {}
-      <aside className="w-[340px] bg-white dark:bg-[#0d0d0f] flex flex-col border-r border-zinc-200 dark:border-zinc-800/80 shrink-0 z-20">
-        <div className="px-4 h-14 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center gap-2.5 shrink-0">
+      <aside className="w-[340px] bg-white dark:bg-[#0d0d0f] flex flex-col border-r border-zinc-200 dark:border-zinc-800 shrink-0 z-20">
+        <div className="px-4 h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2.5 shrink-0">
           <div className="w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
             <Logo size={15} className="text-zinc-900 dark:text-white" />
           </div>
@@ -818,11 +819,11 @@ function FlowWithProvider({ onOpenSettings }) {
 
         {!selectedNode ? (
           <div className="flex flex-col flex-grow overflow-hidden">
-            <div className="px-4 pt-4 pb-2 shrink-0">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+            <div className="px-4 pt-4 pb-3 shrink-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
                 Cluster Overview
               </div>
-              <div className="grid grid-cols-2 rounded-lg border border-zinc-200 dark:border-zinc-800 divide-x divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden">
+              <div className="grid grid-cols-2 gap-px rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                 <StatCell label="Total Nodes" value={totalCount} />
                 <StatCell
                   label="Online"
@@ -832,7 +833,7 @@ function FlowWithProvider({ onOpenSettings }) {
                 <StatCell label="Guests Running" value={runningGuests} />
                 <StatCell label="Services" value={serviceCount} />
               </div>
-              <div className="flex items-center gap-4 mt-3 px-1">
+              <div className="flex items-center gap-4 mt-3.5">
                 <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
                   <Server size={12} />
                   <span className="text-[11px] font-mono">
@@ -860,15 +861,15 @@ function FlowWithProvider({ onOpenSettings }) {
               </div>
 
               {}
-              <div className="mt-4 px-1">
+              <div className="mt-4">
                 <Meter label="Cluster CPU" value={avgCpu} />
                 <Meter label="Cluster Memory" value={avgRam} />
               </div>
 
               {}
               {attentionNodes.length > 0 && (
-                <div className="mt-3">
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                <div className="mt-5">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
                     Attention
                   </div>
                   <div className="space-y-1">
@@ -889,10 +890,10 @@ function FlowWithProvider({ onOpenSettings }) {
                         <button
                           key={n.id}
                           onClick={() => selectNode(n.id)}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-left transition-colors hover:opacity-80 ${
+                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left transition-colors ${
                             tone === "red"
-                              ? "border-red-500/20 bg-red-500/5"
-                              : "border-amber-500/20 bg-amber-500/5"
+                              ? "border-red-500/20 bg-red-500/[0.06] hover:bg-red-500/10"
+                              : "border-amber-500/20 bg-amber-500/[0.06] hover:bg-amber-500/10"
                           }`}
                         >
                           <span
@@ -902,7 +903,7 @@ function FlowWithProvider({ onOpenSettings }) {
                             {n.data?.label}
                           </span>
                           <span
-                            className={`text-[10px] font-mono shrink-0 ${tone === "red" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}
+                            className={`text-[10px] font-mono shrink-0 tabular-nums ${tone === "red" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}
                           >
                             {reason}
                           </span>
@@ -915,8 +916,8 @@ function FlowWithProvider({ onOpenSettings }) {
 
               {}
               {tasks.length > 0 && (
-                <div className="mt-4">
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                <div className="mt-5">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
                     Recent Activity
                   </div>
                   <div className="space-y-0.5">
@@ -936,7 +937,7 @@ function FlowWithProvider({ onOpenSettings }) {
                       return (
                         <div
                           key={t.id || i}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-md"
+                          className="flex items-center gap-2.5 px-2 py-1.5"
                         >
                           <Icon
                             size={12}
@@ -964,8 +965,8 @@ function FlowWithProvider({ onOpenSettings }) {
               )}
             </div>
 
-            <div className="px-4 pt-3 pb-1 shrink-0">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+            <div className="px-4 pt-5 pb-2 shrink-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                 Nodes ({listNodes.length})
               </div>
             </div>
@@ -983,10 +984,10 @@ function FlowWithProvider({ onOpenSettings }) {
                     <button
                       key={n.id}
                       onClick={() => selectNode(n.id)}
-                      className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors text-left"
                     >
                       <span
-                        className={`h-2 w-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-red-500"}`}
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-red-500"}`}
                       />
                       <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-200 truncate flex-1">
                         {n.data?.label}
@@ -1003,13 +1004,22 @@ function FlowWithProvider({ onOpenSettings }) {
         ) : (
           <div className="flex flex-col flex-grow overflow-hidden">
             <div className="flex-grow overflow-y-auto custom-scrollbar p-4">
+              <button
+                onClick={() => {
+                  setSelectedNodeId(null);
+                  fitView({ padding: 0.2, duration: 500 });
+                }}
+                className="inline-flex items-center gap-1.5 -ml-1 mb-3 px-1 py-0.5 rounded-md text-[11px] font-medium text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+              >
+                <ArrowLeft size={13} /> Overview
+              </button>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <h2 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                  <h2 className="text-[15px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
                     {selectedNode.data.label}
                   </h2>
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isNodeOnline(selectedNode) ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "bg-red-500/10 text-red-600 dark:text-red-500"}`}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em] ${isNodeOnline(selectedNode) ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "bg-red-500/10 text-red-600 dark:text-red-500"}`}
                   >
                     {selectedNode.data.status}
                   </span>
@@ -1019,8 +1029,8 @@ function FlowWithProvider({ onOpenSettings }) {
                 </p>
               </div>
 
-              <div className="mb-5 px-4 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 pt-2 pb-0.5">
+              <div className="mb-5 px-3.5 py-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800">
+                <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 pb-1">
                   Resource Usage
                 </div>
                 <Meter label="CPU" value={pctToNumber(selectedNode.data.cpu)} />
@@ -1043,10 +1053,10 @@ function FlowWithProvider({ onOpenSettings }) {
                 return has(rx) || has(tx);
               })() && (
                 <div className="mb-5 flex gap-2">
-                  <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                  <div className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800">
                     <ArrowDown size={14} className="text-zinc-400 shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 leading-none">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 leading-none">
                         Download
                       </div>
                       <div className="text-[12px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none mt-1 truncate">
@@ -1054,10 +1064,10 @@ function FlowWithProvider({ onOpenSettings }) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                  <div className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800">
                     <ArrowUp size={14} className="text-zinc-400 shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 leading-none">
+                      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 leading-none">
                         Upload
                       </div>
                       <div className="text-[12px] font-mono font-semibold text-zinc-700 dark:text-zinc-200 leading-none mt-1 truncate">
@@ -1083,7 +1093,7 @@ function FlowWithProvider({ onOpenSettings }) {
 
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                     History
                   </div>
                   <div className="flex items-center gap-0.5 rounded-md border border-zinc-200 dark:border-zinc-700 p-0.5">
@@ -1091,7 +1101,7 @@ function FlowWithProvider({ onOpenSettings }) {
                       <button
                         key={tf}
                         onClick={() => setTimeframe(tf)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium capitalize transition-colors ${
+                        className={`px-2 py-1 rounded-[5px] text-[10px] font-medium capitalize transition-colors ${
                           timeframe === tf
                             ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
                             : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
@@ -1104,13 +1114,13 @@ function FlowWithProvider({ onOpenSettings }) {
                 </div>
                 <div className="space-y-3 px-1">
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-1">
                       CPU
                     </div>
                     <Sparkline data={rrd.series?.cpu} color="#3b82f6" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+                    <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-1">
                       Memory
                     </div>
                     <Sparkline data={rrd.series?.mem} color="#8b5cf6" />
@@ -1119,7 +1129,7 @@ function FlowWithProvider({ onOpenSettings }) {
               </div>
 
               <div className="mb-5">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-1">
                   Details
                 </div>
                 <InfoRow
@@ -1136,14 +1146,14 @@ function FlowWithProvider({ onOpenSettings }) {
 
               {selectedNode.data.sub_services?.length > 0 && (
                 <div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
                     Services
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedNode.data.sub_services.map((svc, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-1 rounded text-[11px] font-mono text-zinc-600 dark:text-zinc-300"
+                        className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 px-2 py-1 rounded-md text-[11px] font-mono text-zinc-600 dark:text-zinc-300"
                       >
                         <LayoutTemplate
                           size={11}
@@ -1178,16 +1188,20 @@ function FlowWithProvider({ onOpenSettings }) {
           proOptions={{ hideAttribution: true }}
         >
           <Background
-            color={isDarkMode ? "#27272a" : "#d4d4d8"}
-            gap={24}
+            color={isDarkMode ? "#242429" : "#dcdce0"}
+            gap={28}
             size={1}
             variant="dots"
           />
           <Controls
             showInteractive={false}
-            className="!bg-white dark:!bg-zinc-900 !border !border-zinc-200 dark:!border-zinc-800 [&>button]:!border-zinc-200 dark:[&>button]:!border-zinc-800 [&>button]:!fill-zinc-500 [&>button:hover]:!bg-zinc-100 dark:[&>button:hover]:!bg-zinc-800 !rounded-lg !shadow-md !overflow-hidden"
+            className="!bg-white dark:!bg-zinc-900 !border !border-zinc-200 dark:!border-zinc-800 [&>button]:!border-zinc-200 dark:[&>button]:!border-zinc-800 [&>button]:!fill-zinc-500 [&>button:hover]:!bg-zinc-100 dark:[&>button:hover]:!bg-zinc-800 !rounded-lg !shadow-sm !overflow-hidden"
           >
-            <ControlButton onClick={handleReorder} title="Auto-arrange">
+            <ControlButton
+              onClick={handleReorder}
+              title="Auto-arrange"
+              className="[&_svg]:!fill-none [&_svg]:!stroke-current"
+            >
               <Layout size={14} />
             </ControlButton>
           </Controls>
@@ -1206,11 +1220,11 @@ function FlowWithProvider({ onOpenSettings }) {
           </button>
         )}
 
-        <div className="absolute bottom-4 right-4 z-30 bg-white/90 dark:bg-zinc-900/90 backdrop-blur border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 shadow-md">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+        <div className="absolute bottom-4 right-4 z-30 bg-white dark:bg-[#0d0d0f] border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2.5 shadow-sm">
+          <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-1.5">
             Connections
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
             {SERVICE_LEGEND.map(([k, label]) => (
               <div key={k} className="flex items-center gap-1.5">
                 <span
@@ -1228,8 +1242,8 @@ function FlowWithProvider({ onOpenSettings }) {
 
       {}
       {chatOpen && (
-        <aside className="w-[480px] bg-white dark:bg-[#0d0d0f] flex flex-col border-l border-zinc-200 dark:border-zinc-800/80 shrink-0 z-20">
-          <div className="px-4 h-14 border-b border-zinc-200 dark:border-zinc-800/80 flex items-center justify-between">
+        <aside className="w-[480px] bg-white dark:bg-[#0d0d0f] flex flex-col border-l border-zinc-200 dark:border-zinc-800 shrink-0 z-20">
+          <div className="px-4 h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
                 <MessageCircleDashed
@@ -1309,7 +1323,7 @@ function FlowWithProvider({ onOpenSettings }) {
             )}
           </div>
 
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800/80">
+          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
             {!ollamaOnline && (
               <div className="mb-2 flex items-center gap-1.5 text-[11px] text-red-500">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -1329,7 +1343,7 @@ function FlowWithProvider({ onOpenSettings }) {
                     ? "Ask about your infrastructure..."
                     : "Assistant offline"
                 }
-                className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 pl-3.5 pr-11 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 pl-3.5 pr-11 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={isThinking || !ollamaOnline}
               />
               <button

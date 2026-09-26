@@ -149,11 +149,11 @@ export default function Onboarding({ onDone }) {
   return (
     <div className="fixed inset-0 z-50 bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100 flex">
       {}
-      <aside className="hidden md:flex w-[300px] shrink-0 flex-col justify-between border-r border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#0d0d0f] p-8">
+      <aside className="hidden md:flex w-[300px] shrink-0 flex-col justify-between border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0d0d0f] p-8">
         <div>
           <div className="flex items-center gap-2.5 mb-12">
-            <div className="w-8 h-8 rounded-md bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
-              <Logo size={17} className="text-white dark:text-zinc-900" />
+            <div className="w-7 h-7 rounded-md bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+              <Logo size={15} className="text-white dark:text-zinc-900" />
             </div>
             <span className="font-semibold tracking-tight text-[15px]">
               InfraLens
@@ -345,14 +345,14 @@ export default function Onboarding({ onDone }) {
                 </div>
               ) : (
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                     Model
                   </span>
                   <div className="relative">
                     <select
                       value={form.ollama_model}
                       onChange={set("ollama_model")}
-                      className="w-full appearance-none bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg py-2.5 pl-3.5 pr-9 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all cursor-pointer"
+                      className="w-full appearance-none bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 pl-3.5 pr-9 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all cursor-pointer"
                     >
                       {models.map((m) => (
                         <option key={m} value={m}>
@@ -424,10 +424,10 @@ function Shell({ children }) {
 function Welcome({ onBegin }) {
   return (
     <div className="w-full max-w-md text-center flex flex-col items-center">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center mb-8">
-        <Logo size={34} className="text-white dark:text-zinc-900" />
+      <div className="w-14 h-14 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center mb-8">
+        <Logo size={30} className="text-white dark:text-zinc-900" />
       </div>
-      <h1 className="text-3xl font-semibold tracking-tight mb-3">
+      <h1 className="text-[28px] font-semibold tracking-tight mb-3">
         Welcome to InfraLens
       </h1>
       <p className="text-[15px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-9 max-w-sm">
@@ -453,10 +453,10 @@ function Welcome({ onBegin }) {
 function Done({ onLaunch }) {
   return (
     <div className="w-full max-w-md text-center flex flex-col items-center">
-      <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-8">
-        <Check size={32} className="text-emerald-500" />
+      <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-8">
+        <Check size={28} className="text-emerald-500" />
       </div>
-      <h1 className="text-3xl font-semibold tracking-tight mb-3">
+      <h1 className="text-[28px] font-semibold tracking-tight mb-3">
         You're all set
       </h1>
       <p className="text-[15px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-9 max-w-sm">
@@ -476,10 +476,10 @@ function Done({ onLaunch }) {
 function Stage({ label, title, blurb, children, onSubmit }) {
   const inner = (
     <>
-      <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400 mb-2">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 mb-2">
         {label}
       </span>
-      <h2 className="text-2xl font-semibold tracking-tight mb-2">{title}</h2>
+      <h2 className="text-[22px] font-semibold tracking-tight mb-2">{title}</h2>
       <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8">
         {blurb}
       </p>
@@ -596,7 +596,7 @@ function Nav({ onBack, primary, secondary }) {
 function Prereq({ icon: Icon, children }) {
   return (
     <div className="flex items-center gap-3 text-[13px] text-zinc-600 dark:text-zinc-300">
-      <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
         <Icon size={15} className="text-zinc-500 dark:text-zinc-400" />
       </div>
       {children}
@@ -623,7 +623,7 @@ function Field({
       className={`flex flex-col gap-1.5 ${grow ? "flex-1" : ""}`}
       style={w ? { flex: `0 0 ${w}` } : undefined}
     >
-      <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
         {label}
       </span>
       <input
@@ -632,7 +632,7 @@ function Field({
         onChange={onChange}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
+        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
       />
     </label>
   );

@@ -1,14 +1,16 @@
+import asyncio
 import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-import config_store
-import manager
 import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+import config_store
+import manager
 
 APP_VERSION = os.getenv("INFRALENS_VERSION", "0.2.0")
 
@@ -100,12 +102,16 @@ def reset_config():
 
 
 @app.get("/api/v1/health")
-def health():
+async def health():
+    proxmox, ollama = await asyncio.gather(
+        asyncio.to_thread(manager.check_proxmox),
+        asyncio.to_thread(manager.check_ollama),
+    )
     return {
         "version": APP_VERSION,
         "configured": config_store.is_configured(),
-        "proxmox": manager.check_proxmox(),
-        "ollama": manager.check_ollama(),
+        "proxmox": proxmox,
+        "ollama": ollama,
     }
 
 
