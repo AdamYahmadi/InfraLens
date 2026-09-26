@@ -27,7 +27,7 @@
   height: 100% !important;
 }
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -43,14 +43,19 @@
   display: flex;
 }
 
-@supports (-webkit-hyphens: none) {
-  [class*="backdrop-blur"] {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-  }
+button:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #52525b;
+  outline-offset: 1px;
+}
+.dark button:focus-visible,
+.dark select:focus-visible,
+.dark [tabindex]:focus-visible {
+  outline-color: #a1a1aa;
 }
 
-.react-flow__edge-path {
+.react-flow__edge.animated .react-flow__edge-path {
   stroke-dasharray: 6 4;
   animation: dashflow 0.6s linear infinite;
 }
@@ -58,15 +63,6 @@
   to {
     stroke-dashoffset: -10;
   }
-}
-.react-flow__edge.animated .react-flow__edge-path {
-  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.5));
-}
-
-.react-flow__edge.edge-offline .react-flow__edge-path {
-  stroke-dasharray: none !important;
-  animation: none !important;
-  filter: none !important;
 }
 
 @keyframes il-breathe {

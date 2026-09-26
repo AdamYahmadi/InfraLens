@@ -140,7 +140,7 @@ export default function ServiceNode({ data, selected }) {
       "bg-zinc-900 dark:bg-zinc-100 border-zinc-900 dark:border-zinc-100 text-white dark:text-zinc-900";
   } else if (!isOnline) {
     tileClass =
-      "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-700/60 text-zinc-400 dark:text-zinc-600";
+      "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600";
   } else {
     tileClass = "";
     tileStyle = { backgroundColor: `${color}1A`, borderColor: `${color}33` };
@@ -149,13 +149,13 @@ export default function ServiceNode({ data, selected }) {
 
   return (
     <div
-      className={`relative min-w-[184px] rounded-lg border transition-all duration-150 overflow-hidden
+      className={`relative min-w-[184px] rounded-lg border transition-colors duration-150 overflow-hidden
         ${
           selected
-            ? "border-zinc-900 dark:border-zinc-100 bg-white dark:bg-zinc-800 ring-1 ring-zinc-900/20 dark:ring-zinc-100/20 shadow-sm"
+            ? "border-zinc-900 dark:border-zinc-100 bg-white dark:bg-zinc-900"
             : isHost
-              ? "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800/60 hover:border-zinc-400 dark:hover:border-zinc-500 shadow-sm"
-              : "border-zinc-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/50 hover:border-zinc-300 dark:hover:border-zinc-600"
+              ? "border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600"
+              : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 hover:border-zinc-300 dark:hover:border-zinc-700"
         }`}
     >
       <Handle
@@ -165,17 +165,17 @@ export default function ServiceNode({ data, selected }) {
       />
 
       {isHost && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-zinc-900 dark:bg-zinc-100" />
+        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-zinc-900 dark:bg-zinc-100" />
       )}
 
       <div
         className={`flex items-center gap-2.5 py-2.5 pr-3 ${isHost ? "pl-4" : "pl-3"}`}
       >
         <div
-          className={`shrink-0 rounded-md p-1.5 border ${tileClass}`}
+          className={`shrink-0 h-7 w-7 rounded-md border flex items-center justify-center ${tileClass}`}
           style={tileStyle}
         >
-          <Icon size={15} style={iconStyle} />
+          <Icon size={14} style={iconStyle} />
         </div>
 
         <div className="flex flex-col min-w-0 flex-1">
@@ -194,8 +194,8 @@ export default function ServiceNode({ data, selected }) {
           </div>
         </div>
 
-        <div className="shrink-0 pl-2 border-l border-zinc-100 dark:border-zinc-700/60">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-mono">
+        <div className="shrink-0 pl-2.5 border-l border-zinc-100 dark:border-zinc-800">
+          <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500 font-mono">
             {kind}
           </span>
         </div>

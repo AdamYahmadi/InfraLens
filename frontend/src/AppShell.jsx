@@ -7,27 +7,43 @@ import App from "./App.jsx";
 import { Loader2, RefreshCw } from "lucide-react";
 import Logo from "./components/Logo";
 
+const OFFLINE_AFTER = 3;
+
 export default function AppShell() {
   const [phase, setPhase] = useState("loading");
   const [showSettings, setShowSettings] = useState(false);
   const [health, setHealth] = useState(null);
   const failures = useRef(0);
 
+  const refreshHealth = useCallback(async () => {
+    const data = await axios
+      .get(api("/api/v1/health"), { timeout: 20000 })
+      .then((r) => r.data)
+      .catch(() => null);
+    if (data) setHealth(data);
+  }, []);
+
   const probe = useCallback(async () => {
     try {
-      const { data } = await axios.get(api("/api/v1/health"), {
-        timeout: 12000,
+      const { data } = await axios.get(api("/api/v1/config"), {
+        timeout: 5000,
       });
       failures.current = 0;
-      setHealth(data);
       setPhase(data.configured ? "ready" : "setup");
+      refreshHealth();
       return true;
     } catch {
       failures.current += 1;
-      setPhase((prev) => (prev === "ready" ? "ready" : "offline"));
+      setPhase((prev) =>
+        prev === "ready" || prev === "setup"
+          ? prev
+          : failures.current >= OFFLINE_AFTER
+            ? "offline"
+            : "loading",
+      );
       return false;
     }
-  }, []);
+  }, [refreshHealth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +68,6 @@ export default function AppShell() {
   }, [phase, probe]);
 
   const retry = useCallback(() => {
-    failures.current = 0;
     probe();
   }, [probe]);
 
@@ -61,7 +76,7 @@ export default function AppShell() {
       <Centered>
         <div className="flex flex-col items-center gap-3 opacity-40">
           <Logo size={28} className="text-zinc-900 dark:text-white" />
-          <span className="text-xs font-medium tracking-widest uppercase text-zinc-500">
+          <span className="text-[10px] font-medium tracking-[0.18em] uppercase text-zinc-400 dark:text-zinc-500">
             InfraLens
           </span>
         </div>
@@ -77,7 +92,9 @@ export default function AppShell() {
             className="mx-auto text-zinc-400 mb-3 animate-spin"
             size={28}
           />
-          <h2 className="text-base font-semibold mb-1">Starting the engine…</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight mb-1.5">
+            Starting the engine…
+          </h2>
           <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mb-5">
             InfraLens is warming up. This can take a few seconds on first
             launch.
@@ -122,7 +139,7 @@ export default function AppShell() {
 
 function Centered({ children }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-500 dark:text-zinc-400">
+    <div className="fixed inset-0 flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-500 dark:text-zinc-400">
       {children}
     </div>
   );
@@ -130,8 +147,8 @@ function Centered({ children }) {
 
 function ConnectionLost({ onSettings }) {
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-5 bg-zinc-50/95 dark:bg-[#0a0a0b]/95 backdrop-blur-sm">
-      <div className="w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-sm">
+    <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-5 bg-zinc-50 dark:bg-[#0a0a0b]">
+      <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#0d0d0f] border border-zinc-200 dark:border-zinc-800 flex items-center justify-center">
         <svg
           width="24"
           height="24"
@@ -153,7 +170,7 @@ function ConnectionLost({ onSettings }) {
         </svg>
       </div>
       <div className="text-center">
-        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1">
+        <h3 className="text-sm font-semibold tracking-tight text-zinc-800 dark:text-zinc-100 mb-1.5">
           Connection lost
         </h3>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-[240px]">

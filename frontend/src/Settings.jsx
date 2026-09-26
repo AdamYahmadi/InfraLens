@@ -138,16 +138,13 @@ export default function Settings({ onClose, onSaved, onReset }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-lg max-h-[86vh] bg-white dark:bg-[#0d0d0f] border border-zinc-200 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col text-zinc-900 dark:text-zinc-100">
-        <div className="px-6 h-14 border-b border-zinc-200 dark:border-white/5 flex items-center justify-between shrink-0">
-          <h2 className="text-[15px] font-semibold tracking-tight">Settings</h2>
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-lg max-h-[86vh] bg-white dark:bg-[#0d0d0f] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl flex flex-col text-zinc-900 dark:text-zinc-100">
+        <div className="px-6 h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+          <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 transition-colors"
+            className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"
           >
             <X size={16} />
           </button>
@@ -159,7 +156,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 space-y-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 space-y-7">
               <Section
                 icon={Server}
                 title="Proxmox API"
@@ -246,7 +243,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
               >
                 <label className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                       Model
                     </span>
                     <button
@@ -267,7 +264,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
                       <select
                         value={form.ollama_model}
                         onChange={set("ollama_model")}
-                        className="w-full appearance-none bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg py-2.5 pl-3.5 pr-9 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all cursor-pointer"
+                        className="w-full appearance-none bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 pl-3.5 pr-9 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all cursor-pointer"
                       >
                         {form.ollama_model &&
                           !models.includes(form.ollama_model) && (
@@ -287,7 +284,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
                       />
                     </div>
                   ) : (
-                    <div className="text-[12px] text-zinc-400 dark:text-zinc-500 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/40 px-3.5 py-2.5">
+                    <div className="text-[12px] text-zinc-400 dark:text-zinc-500 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 px-3.5 py-2.5">
                       {detecting
                         ? "Detecting installed models…"
                         : ollErr || "No models detected. Click Refresh."}
@@ -337,7 +334,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
             </div>
 
             {confirmReset ? (
-              <div className="px-6 py-4 border-t border-zinc-200 dark:border-white/5 shrink-0 flex items-center gap-3">
+              <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex items-center gap-3">
                 <AlertTriangle size={16} className="text-rose-500 shrink-0" />
                 <span className="text-[13px] text-zinc-600 dark:text-zinc-300 flex-1">
                   Disconnect and erase your saved settings?
@@ -360,7 +357,7 @@ export default function Settings({ onClose, onSaved, onReset }) {
                 </button>
               </div>
             ) : (
-              <div className="px-6 py-4 border-t border-zinc-200 dark:border-white/5 shrink-0 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex items-center justify-between">
                 <button
                   onClick={() => setConfirmReset(true)}
                   className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-rose-500 transition-colors"
@@ -395,7 +392,7 @@ function Section({ icon: Icon, title, desc, children }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-md bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-center shrink-0">
+        <div className="w-7 h-7 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shrink-0">
           <Icon size={14} className="text-zinc-500 dark:text-zinc-400" />
         </div>
         <div className="flex flex-col">
@@ -415,7 +412,7 @@ function Section({ icon: Icon, title, desc, children }) {
 }
 
 function Divider() {
-  return <div className="h-px bg-zinc-100 dark:bg-white/5" />;
+  return <div className="h-px bg-zinc-100 dark:bg-zinc-800" />;
 }
 
 function Row({ children }) {
@@ -436,7 +433,7 @@ function Field({
       className={`flex flex-col gap-1.5 ${grow ? "flex-1" : ""}`}
       style={w ? { flex: `0 0 ${w}` } : undefined}
     >
-      <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
         {label}
       </span>
       <input
@@ -444,7 +441,7 @@ function Field({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-lg py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
+        className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500 focus:ring-1 focus:ring-zinc-400/20 transition-all placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
       />
     </label>
   );

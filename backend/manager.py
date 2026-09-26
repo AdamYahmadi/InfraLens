@@ -1,32 +1,75 @@
 import os
 
-import config_store
 import requests
+
+import config_store
 
 _engine = None
 _probe = None
 _engine_error = None
 
 
-def _friendly_error(e: Exception) -> str:
+def _host_label(source: dict | None) -> str | None:
+    host = ((source or {}).get("pve_host") or "").strip()
+    if not host:
+        return None
+    port = str((source or {}).get("pve_port") or "").strip()
+    return f"{host}:{port}" if port else host
+
+
+def _friendly_error(e: Exception, host: str | None = None) -> str:
     msg = str(e)
-    if "CERTIFICATE_VERIFY_FAILED" in msg or "SSLError" in msg or "SSL" in msg:
+    low = msg.lower()
+    print(f"[manager] proxmox error: {msg}")
+
+    where = f" at {host}" if host else ""
+
+    if "certificate_verify_failed" in low or "sslerror" in low or "ssl" in low:
         return (
             "SSL certificate verification failed. "
             "Your Proxmox host uses a self-signed certificate — "
             "disable 'Verify SSL certificate' in Settings."
         )
-    if (
-        "Connection refused" in msg
-        or "No route to host" in msg
-        or "timed out" in msg.lower()
-    ):
-        return "Couldn't reach Proxmox. Check the IP address, port, and Local Network permission."
-    if "401" in msg or "403" in msg or "Unauthorized" in msg:
+    if "401" in msg or "403" in msg or "unauthorized" in low:
         return (
             "Authentication failed. Check your API user, token name, and token value."
         )
-    return f"Connection failed: {e}"
+    if (
+        "name or service not known" in low
+        or "nodename nor servname" in low
+        or "getaddrinfo" in low
+        or "failed to resolve" in low
+    ):
+        return f"Couldn't find the host{where}. Check the address in Settings."
+    if "network is unreachable" in low or "errno 51" in low:
+        return (
+            f"No network route to Proxmox{where}. Check that this machine is on "
+            "the same network and that InfraLens has Local Network permission."
+        )
+    if (
+        "no route to host" in low
+        or "host is down" in low
+        or "errno 65" in low
+        or "errno 64" in low
+    ):
+        return (
+            f"Proxmox{where} didn't answer. Check that the host is powered on "
+            "and reachable from this machine."
+        )
+    if "connection refused" in low or "errno 61" in low:
+        return (
+            f"Connection refused by Proxmox{where}. Check the port and that the "
+            "Proxmox web interface is running."
+        )
+    if "timed out" in low or "timeout" in low:
+        return (
+            f"Proxmox{where} didn't respond in time. Check the IP address, port, "
+            "and Local Network permission."
+        )
+    return (
+        f"Couldn't reach Proxmox{where}. Check the IP address, port, and Local "
+        "Network permission."
+    )
 
 
 def _friendly_ollama_error(e: Exception, url: str) -> str:
@@ -72,7 +115,7 @@ def reload_from_config() -> None:
         )
     except Exception as e:
         _engine = None
-        _engine_error = _friendly_error(e)
+        _engine_error = _friendly_error(e, _host_label(cfg))
         print(f"[manager] engine init failed: {e}")
 
     try:
@@ -110,7 +153,11 @@ def check_proxmox() -> dict:
         _engine.pve.version.get()
         return {"ok": True, "configured": True, "detail": "Connected."}
     except Exception as e:
-        return {"ok": False, "configured": True, "detail": _friendly_error(e)}
+        return {
+            "ok": False,
+            "configured": True,
+            "detail": _friendly_error(e, _host_label(cfg)),
+        }
 
 
 def check_ollama() -> dict:
@@ -170,7 +217,7 @@ def test_proxmox(params: dict) -> dict:
         ver = version.get("version", "") if isinstance(version, dict) else ""
         return {"ok": True, "detail": f"Connected to Proxmox VE {ver}".strip() + "."}
     except Exception as e:
-        return {"ok": False, "detail": _friendly_error(e)}
+        return {"ok": False, "detail": _friendly_error(e, _host_label(params))}
     finally:
         if old_port is None:
             os.environ.pop("PVE_PORT", None)
